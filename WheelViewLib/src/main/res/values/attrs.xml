@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <declare-styleable name="WheelView">
+        <attr name="wheelDrawable" format="reference"/>
+        <attr name="wheelColor" format="color"/>
+        <attr name="wheelItemTransformer" format="string"/>
+        <attr name="selectionTransformer" format="string"/>
+        <attr name="emptyItemDrawable" format="reference"/>
+        <attr name="emptyItemColor" format="color"/>
+        <attr name="selectionDrawable" format="reference"/>
+        <attr name="selectionColor" format="color"/>
+        <attr name="selectionPadding" format="dimension"/>
+        <attr name="selectionAngle" format="float"/>
+        <attr name="repeatItems" format="boolean"/>
+        <attr name="rotatableWheelDrawable" format="boolean"/>
+
+        <!-- Recently Added -->
+        <attr name="wheelRadius" format="dimension">
+            <enum name="match_parent" value="-1" />
+        </attr>
+        <attr name="wheelItemRadius" format="dimension"/>
+        <attr name="wheelOffsetX" format="dimension"/>
+        <attr name="wheelOffsetY" format="dimension"/>
+        <attr name="wheelItemCount" format="integer"/>
+        <attr name="wheelItemAngle" format="float"/>
+        <attr name="wheelItemAnglePadding" format="float"/>
+        <attr name="wheelToItemDistance" format="dimension">
+            <enum name="match_parent" value="-1" />
+            <enum name="fill_parent" value="-1" />
+            <enum name="wrap_content" value="-2" />
+        </attr>
+    </declare-styleable>
+</resources>

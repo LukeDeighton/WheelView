@@ -1,0 +1,29 @@
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <ImageView
+        android:id="@+id/selectedWheelItem"
+        android:layout_width="140dp"
+        android:layout_height="140dp"
+        android:layout_centerHorizontal="true" />
+
+    <com.lukedeighton.wheelview.WheelView
+        android:id="@+id/wheelview"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_alignParentBottom="true"
+        app:emptyItemColor="#6F5500FF"
+        app:repeatItems="true"
+        app:selectionAngle="90.0"
+        app:selectionColor="#FF6200AB"
+        app:selectionPadding="3.5dp"
+        app:wheelItemTransformer="com.lukedeighton.wheelview.WheelView$SimpleTransformer"
+        app:wheelColor="@color/abc_search_url_text_holo"
+        app:wheelToItemDistance="180dp"
+        app:wheelRadius="220dp"
+        app:wheelItemCount="12"
+        app:wheelItemAnglePadding="2"
+        app:wheelItemRadius="35dp"/>
+</RelativeLayout>
