@@ -270,7 +270,7 @@ public class WheelView extends View {
      * A listener for when a wheel item is selected.
      */
     public static interface OnWheelItemSelectListener {
-        void onWheelItemSelected(WheelAdapter wheelItem, int position);
+        void onWheelItemSelected(WheelAdapter adapter, int position);
         //TODO onWheelItemSettled?
     }
 
