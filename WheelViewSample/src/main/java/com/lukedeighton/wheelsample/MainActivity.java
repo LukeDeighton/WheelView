@@ -6,43 +6,54 @@ import android.graphics.drawable.LayerDrawable;
 import android.graphics.drawable.ShapeDrawable;
 import android.graphics.drawable.shapes.OvalShape;
 import android.os.Bundle;
-import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 
 import com.lukedeighton.wheelview.WheelView;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+
 public class MainActivity extends Activity {
+
+    private static final int ITEM_COUNT = 20;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        final WheelView wheelView = (WheelView) findViewById(R.id.wheelview);
-        wheelView.setWheelColor(getResources().getColor(R.color.grey_400));
+        WheelView wheelView = (WheelView) findViewById(R.id.wheelview);
+
+        //create data for the adapter
+        List<Map.Entry<String, Integer>> entries = new ArrayList<Map.Entry<String, Integer>>(ITEM_COUNT);
+        for(int i = 0; i < ITEM_COUNT; i++) {
+            Map.Entry<String, Integer> entry = MaterialColor.random(this, "\\D*_500$");
+            entries.add(entry);
+        }
+
+        //populate the adapter that knows how to draw each item (as you would do with a ListAdapter)
+        wheelView.setAdapter(new MaterialAdapter(entries));
+
+        //a listener for receiving a callback for when the item closest to the selection angle changes
         wheelView.setOnWheelItemSelectedListener(new WheelView.OnWheelItemSelectListener() {
             @Override
-            public void onWheelItemSelected(WheelView.WheelAdapter adapter, int position) {
-                //Toast.makeText(MainActivity.this, "Selected Item at position: " + position, Toast.LENGTH_SHORT).show();
+            public void onWheelItemSelected(WheelView parent, int position) {
+                //get the item at this position
+                Map.Entry<String, Integer> selectedEntry = ((MaterialAdapter) parent.getAdapter()).getItem(position);
+                parent.setSelectionColor(getContrastColor(selectedEntry));
             }
         });
-        wheelView.setAdapter(new WheelView.WheelAdapter() {
-            @Override
-            public Drawable getDrawable(int position) {
-                Log.d("test", "get item at " + position);
-                Drawable[] drawable = new Drawable[] {
-                    createOvalDrawable(MaterialColor.random(MainActivity.this, "\\D*_500$") ),
-                    new TextDrawable(String.valueOf(position))
-                };
-                return new LayerDrawable(drawable);
-            }
 
-            @Override
-            public int getCount() {
-                return 22;
-            }
-        });
+        //initialise the selection drawable with the first contrast color
+        wheelView.setSelectionColor(getContrastColor(entries.get(0)));
+    }
+
+    //get the materials darker contrast
+    private int getContrastColor(Map.Entry<String, Integer> entry) {
+        String colorName = MaterialColor.getColorName(entry);
+        return MaterialColor.getContrastColor(colorName);
     }
 
     @Override
@@ -60,9 +71,35 @@ public class MainActivity extends Activity {
         return super.onOptionsItemSelected(item);
     }
 
-    private Drawable createOvalDrawable(int color) {
-        ShapeDrawable shapeDrawable = new ShapeDrawable(new OvalShape());
-        shapeDrawable.getPaint().setColor(color);
-        return shapeDrawable;
+    static class MaterialAdapter implements WheelView.WheelAdapter {
+        private List<Map.Entry<String, Integer>> mEntries;
+
+        MaterialAdapter(List<Map.Entry<String, Integer>> entries) {
+            mEntries = entries;
+        }
+
+        @Override
+        public Drawable getDrawable(int position) {
+            Drawable[] drawable = new Drawable[] {
+                    createOvalDrawable(mEntries.get(position).getValue()),
+                    new TextDrawable(String.valueOf(position))
+            };
+            return new LayerDrawable(drawable);
+        }
+
+        @Override
+        public int getCount() {
+            return mEntries.size();
+        }
+
+        public Map.Entry<String, Integer> getItem(int position) {
+            return mEntries.get(position);
+        }
+
+        private Drawable createOvalDrawable(int color) {
+            ShapeDrawable shapeDrawable = new ShapeDrawable(new OvalShape());
+            shapeDrawable.getPaint().setColor(color);
+            return shapeDrawable;
+        }
     }
 }

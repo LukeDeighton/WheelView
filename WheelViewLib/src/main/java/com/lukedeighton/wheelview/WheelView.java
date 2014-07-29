@@ -270,7 +270,7 @@ public class WheelView extends View {
      * A listener for when a wheel item is selected.
      */
     public static interface OnWheelItemSelectListener {
-        void onWheelItemSelected(WheelAdapter adapter, int position);
+        void onWheelItemSelected(WheelView parent, int position);
         //TODO onWheelItemSettled?
     }
 
@@ -325,7 +325,7 @@ public class WheelView extends View {
         invalidate();
     }
 
-    public WheelAdapter getWheelAdapter() {
+    public WheelAdapter getAdapter() {
         return mAdapter;
     }
 
@@ -372,7 +372,6 @@ public class WheelView extends View {
     }
 
     public static class FadingSelectionTransformer implements WheelSelectionTransformer {
-
         private WheelView mWheelView;
 
         public FadingSelectionTransformer(WheelView wheelView) {
@@ -381,10 +380,15 @@ public class WheelView extends View {
 
         @Override
         public void transform(Drawable drawable, float angleFromSelection) {
-            int alpha = (int)(Math.abs(angleFromSelection) / mWheelView.mItemAngle * 255f * 2f) - 80;
+            //TODO use the relativePosition for both transform callbacks - perhaps just provide an interpolator?
+            float relativePosition = Math.abs(angleFromSelection) / mWheelView.mItemAngle * 2f;
+            int alpha = (int) ((1f - Math.pow(relativePosition, 2.5f)) * 255f);
+
+            //clamp to between 0 and 255
             if(alpha > 255) alpha = 255;
             else if(alpha < 0) alpha = 0;
-            drawable.setAlpha(255 - alpha);
+
+            drawable.setAlpha(alpha);
         }
     }
 
@@ -698,7 +702,7 @@ public class WheelView extends View {
         mSelectedPosition = position;
 
         if (mOnItemSelectListener != null) {
-            mOnItemSelectListener.onWheelItemSelected(mAdapter, getSelectedPosition());
+            mOnItemSelectListener.onWheelItemSelected(this, getSelectedPosition());
         }
     }
 
@@ -973,7 +977,7 @@ public class WheelView extends View {
     }
 
     /**
-     * A simple circle class with some helper methods used in {@link com.lukedeighton.wheelview.WheelView}
+     * A simple circle with some helper methods used in {@link com.lukedeighton.wheelview.WheelView}
      */
     static class Circle {
         final float mCenterX, mCenterY;

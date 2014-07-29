@@ -4,37 +4,62 @@ import android.content.Context;
 
 import java.lang.reflect.Field;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class MaterialColor {
-    private static Random sRandom = new Random(6);
-    private static List<Integer> sMaterialColors;
+    private static Random sRandom = new Random();
+    private static HashMap<String, Integer> sMaterialHashMap;
+    private static Pattern sColorPattern = Pattern.compile("_[aA]?+\\d+");
 
-    private static List<Integer> getMaterialColors(Context context, Pattern pattern) {
+    private static HashMap<String, Integer> getMaterialColors(Context context) {
         Field[] fields = R.color.class.getFields();
-        List<Integer> materialColors = new ArrayList<Integer>(fields.length);
+        HashMap<String, Integer> materialHashMap = new HashMap<String, Integer>(fields.length);
         for(Field field : fields) {
-            if(!pattern.matcher(field.getName()).matches()) continue;
+            String fieldName = field.getName();
+            if(fieldName.startsWith("abc")) continue;;
 
             try {
                 int resId = field.getInt(null);
-                materialColors.add(context.getResources().getColor(resId));
+                materialHashMap.put(fieldName, context.getResources().getColor(resId));
             } catch (IllegalAccessException e) {
                 e.printStackTrace();
             }
         }
 
-        return materialColors;
+        return materialHashMap;
     }
 
-    public static int random(Context context, String regex) {
-        if(sMaterialColors == null) {
-            sMaterialColors = getMaterialColors(context, Pattern.compile(regex));
+    public static Map.Entry<String, Integer> random(Context context, String regex) {
+        if(sMaterialHashMap == null) {
+            sMaterialHashMap = getMaterialColors(context);
         }
 
-        int rndIndex = sRandom.nextInt(sMaterialColors.size());
-        return sMaterialColors.get(rndIndex);
+        Pattern pattern = Pattern.compile(regex);
+        List<Map.Entry<String, Integer>> materialColors = new ArrayList<Map.Entry<String, Integer>>();
+        for(Map.Entry<String, Integer> entry : sMaterialHashMap.entrySet()) {
+            if(!pattern.matcher(entry.getKey()).matches()) continue;
+            materialColors.add(entry);
+        }
+
+        int rndIndex = sRandom.nextInt(materialColors.size());
+        return materialColors.get(rndIndex);
+    }
+
+    public static int getContrastColor(String colourName) {
+        return sMaterialHashMap.get(colourName + "_700");
+    }
+
+    public static String getColorName(Map.Entry<String, Integer> entry) {
+        String color = entry.getKey();
+        Matcher matcher = sColorPattern.matcher(color);
+        if(matcher.find()) {
+            return color.substring(0, matcher.start());
+        }
+        return null;
     }
 }
