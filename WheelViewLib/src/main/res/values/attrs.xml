@@ -13,10 +13,10 @@
         <attr name="selectionAngle" format="float"/>
         <attr name="repeatItems" format="boolean"/>
         <attr name="rotatableWheelDrawable" format="boolean"/>
-
-        <!-- Recently Added -->
         <attr name="wheelRadius" format="dimension">
             <enum name="match_parent" value="-1" />
+            <!-- TODO how would wrap content work?
+            <enum name="wrap_content" value="-2" /> -->
         </attr>
         <attr name="wheelItemRadius" format="dimension"/>
         <attr name="wheelOffsetX" format="dimension"/>
@@ -26,8 +26,13 @@
         <attr name="wheelItemAnglePadding" format="float"/>
         <attr name="wheelToItemDistance" format="dimension">
             <enum name="match_parent" value="-1" />
-            <enum name="fill_parent" value="-1" />
-            <enum name="wrap_content" value="-2" />
         </attr>
+        <attr name="wheelPosition">
+            <flag name="left" value="0x01" />
+            <flag name="right" value="0x02" />
+            <flag name="top" value="0x04" />
+            <flag name="bottom" value="0x08" />
+        </attr>
+        <attr name="wheelPadding" format="dimension"/>
     </declare-styleable>
 </resources>

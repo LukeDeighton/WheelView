@@ -29,18 +29,19 @@ import android.util.AttributeSet;
 import android.view.InflateException;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.ViewGroup;
 
 import java.util.ArrayList;
 import java.util.List;
 
 //TODO onWheelItemSelected callback for when the wheel has settled (0 angular velocity), and one when it is passed
 //TODO onWheelItemClickListener
-//TODO possible Animation option when setPosition?
 //TODO empty - physics to spring away - prevent movement out from edge
+//TODO sticky selection - always settle on a state that completely selects an item
 //TODO circular clip option?
 //TODO Saving State during screen rotate etc. SavedState extends BaseSavedState
 //TODO handle measurement of view!
-//TODO can items be rendered as views or use recyclerView?
+//TODO can items be rendered as views or use recyclerView - use viewgroup?
 //TODO onWheelItemVisibilityChange needs to factor in when items are cycled within view bounds and should that have another callback?
 //TODO option to get wheel state (either flinging or dragging)
 //TODO item radius works separately ? uses min angle etc. to figure out in the layout event
@@ -49,13 +50,18 @@ public class WheelView extends View {
 
     private static final Rect sTempRect = new Rect();
 
-    private static final float VELOCITY_FRICTION_COEFFICIENT = 0.02f;
-    private static final float CONSTANT_FRICTION_COEFFICIENT = 0.0022f;
+    private static final float VELOCITY_FRICTION_COEFFICIENT = 0.015f;
+    private static final float CONSTANT_FRICTION_COEFFICIENT = 0.0028f;
     private static final float ANGULAR_VEL_COEFFICIENT = 29f;
     private static final float MAX_ANGULAR_VEL = 0.3f;
     private static final int SMOOTH_AVG_COUNT = 4;
 
-    private static final int RGB_MASK = 0x00FFFFFF;
+    private static final int LEFT_MASK = 0x01;
+    private static final int RIGHT_MASK = 0x02;
+    private static final int TOP_MASK = 0x04;
+    private static final int BOTTOM_MASK = 0x08;
+
+    private static final int NEVER_USED = 0;
 
     //The following code is used to avoid sqrt operations during touch drag events
     private static final float TOUCH_DRAG_COEFFICIENT = 0.8f;
@@ -79,6 +85,7 @@ public class WheelView extends View {
     private boolean mRequiresUpdate;
     private int mSelectedPosition;
 
+    private ItemState mItemState = new ItemState();
     private CacheItem[] mItemCacheArray;
     private Drawable mWheelDrawable;
     private Drawable mEmptyItemDrawable;
@@ -105,13 +112,16 @@ public class WheelView extends View {
     private float mSelectionAngle;
 
     private int mSelectionPadding;
-    private float mWheelToItemDistance;
-    private float mItemRadius;
-    private float mRadius;
-    private float mOffsetX;
-    private float mOffsetY;
+
+    private int mWheelPadding;
+    private int mWheelToItemDistance;
+    private int mItemRadius;
+    private int mRadius;
+    private int mOffsetX;
+    private int mOffsetY;
     private int mItemCount;
 
+    private int mWheelPosition;
     private int mLeft, mTop, mWidth, mHeight;
     private Rect mViewBounds = new Rect();
     private Circle mWheelBounds;
@@ -147,51 +157,53 @@ public class WheelView extends View {
         super(context, attrs, defStyle);
         initWheelView();
 
+        //TODO follow this pattern from android source - better performance
+        /* final int N = a.getIndexCount();
+        for (int i = 0; i < N; i++) {
+            int attr = a.getIndex(i);
+            switch (attr) {
+                case com.android.internal.R.styleable.View_background:
+                    background = a.getDrawable(attr);
+                    break; */
+
         TypedArray a = context.obtainStyledAttributes(attrs, R.styleable.WheelView, defStyle, 0);
 
         Drawable d = a.getDrawable(R.styleable.WheelView_emptyItemDrawable);
         if (d != null) {
             setEmptyItemDrawable(d);
-        } else {
-            int color = a.getColor(R.styleable.WheelView_emptyItemColor, RGB_MASK);
-            if (hasAlphaComponent(color)) {
-                setEmptyItemColor(color);
-            }
+        } else if(a.hasValue(R.styleable.WheelView_emptyItemColor)) {
+            int color = a.getColor(R.styleable.WheelView_emptyItemColor, NEVER_USED);
+            setEmptyItemColor(color);
         }
 
         d = a.getDrawable(R.styleable.WheelView_wheelDrawable);
         if (d != null) {
             setWheelDrawable(d);
-        } else {
-            int color = a.getColor(R.styleable.WheelView_wheelColor, RGB_MASK);
-            if (hasAlphaComponent(color)) {
-                setWheelColor(color);
-            }
+        } else if(a.hasValue(R.styleable.WheelView_wheelColor)){
+            int color = a.getColor(R.styleable.WheelView_wheelColor, NEVER_USED);
+            setWheelColor(color);
         }
 
         d = a.getDrawable(R.styleable.WheelView_selectionDrawable);
         if (d != null) {
             setSelectionDrawable(d);
-        } else {
-            int color = a.getColor(R.styleable.WheelView_selectionColor, RGB_MASK);
-            if (hasAlphaComponent(color)) {
-                setSelectionColor(color);
-            }
+        } else if (a.hasValue(R.styleable.WheelView_selectionColor)) {
+            int color = a.getColor(R.styleable.WheelView_selectionColor, NEVER_USED);
+            setSelectionColor(color);
         }
 
-        //TODO default values
-        //TODO fix angle-padding with selection etc.
-
-        mSelectionPadding = (int) a.getDimension(R.styleable.WheelView_selectionPadding, 0f);
+        mSelectionPadding = a.getDimensionPixelSize(R.styleable.WheelView_selectionPadding, 0);
         mIsRepeatable = a.getBoolean(R.styleable.WheelView_repeatItems, false);
         mIsWheelDrawableRotatable = a.getBoolean(R.styleable.WheelView_rotatableWheelDrawable, true);
         mSelectionAngle = a.getFloat(R.styleable.WheelView_selectionAngle, 0f);
-        mRadius = a.getDimension(R.styleable.WheelView_wheelRadius, 0f);
-        mOffsetX = a.getDimension(R.styleable.WheelView_wheelOffsetX, 0f);
-        mOffsetY = a.getDimension(R.styleable.WheelView_wheelOffsetY, 0f);
-        mWheelToItemDistance = a.getDimension(R.styleable.WheelView_wheelToItemDistance, -1f);
+        mRadius = a.getLayoutDimension(R.styleable.WheelView_wheelRadius, 0 /* TODO Wrap_content */);
+        mOffsetX = a.getDimensionPixelSize(R.styleable.WheelView_wheelOffsetX, 0);
+        mOffsetY = a.getDimensionPixelSize(R.styleable.WheelView_wheelOffsetY, 0);
+        mWheelToItemDistance = a.getLayoutDimension(R.styleable.WheelView_wheelToItemDistance, ViewGroup.LayoutParams.MATCH_PARENT);
 
         int itemCount = a.getInteger(R.styleable.WheelView_wheelItemCount, 0);
+
+        //TODO maybe just remove angle padding?
         mItemAnglePadding = a.getFloat(R.styleable.WheelView_wheelItemAnglePadding, 0f); //TODO angle works with the ItemRadius
 
         if(itemCount != 0) {
@@ -203,9 +215,9 @@ public class WheelView extends View {
             }
         }
 
-        mItemRadius = a.getDimension(R.styleable.WheelView_wheelItemRadius, 0f);
+        mItemRadius = a.getDimensionPixelSize(R.styleable.WheelView_wheelItemRadius, 0);
 
-        if(mItemCount == 0) {
+        if(mItemCount == 0 && mWheelToItemDistance > 0) {
             mItemAngle = calculateAngle(mRadius, mWheelToItemDistance) + mItemAnglePadding;
             setWheelItemAngle(mItemAngle);
         }
@@ -220,14 +232,18 @@ public class WheelView extends View {
             mSelectionTransformer = validateAndInstantiate(selectionTransformerStr, WheelSelectionTransformer.class);
         }
 
+        mWheelPadding = a.getDimensionPixelSize(R.styleable.WheelView_wheelPadding, 0);
+
+        mWheelPosition = a.getInt(R.styleable.WheelView_wheelPosition, 0);
+        if(!a.hasValue(R.styleable.WheelView_selectionAngle)) {
+            //TODO use gravity to default the selection angle if not already specified
+        }
+
         a.recycle();
     }
 
-    private boolean hasAlphaComponent(int color) {
-        return (color >>> 24) > 0;
-    }
-
     @SuppressWarnings("unchecked")
+    //TODO what is attr.getValue(TypedValue ? - can it replace this mess?
     private <T> T validateAndInstantiate(String clazzName, Class<? extends T> clazz) {
         String errorMessage;
         T instance;
@@ -260,8 +276,28 @@ public class WheelView extends View {
         }
     }
 
+    private boolean hasMask(int value, int mask) {
+        return (value & mask) == mask;
+    }
+
+    public boolean isPositionLeft() {
+        return hasMask(mWheelPosition, LEFT_MASK);
+    }
+
+    public boolean isPositionRight() {
+        return hasMask(mWheelPosition, RIGHT_MASK);
+    }
+
+    public boolean isPositionTop() {
+        return hasMask(mWheelPosition, TOP_MASK);
+    }
+
+    public boolean isPositionBottom() {
+        return hasMask(mWheelPosition, BOTTOM_MASK);
+    }
+
     public void initWheelView() {
-        //TODO I only really need to init with default values if there are non from attributes...
+        //TODO I only really need to init with default values if there are non defined from attributes...
         mItemTransformer = new ScalableTransformer();
         mSelectionTransformer = new FadingSelectionTransformer(this);
     }
@@ -340,7 +376,7 @@ public class WheelView extends View {
     }
 
     public static interface WheelItemTransformer {
-        void transform(Rect itemBounds, float itemAngle, float x, float y, float radius);
+        void transform(ItemState itemState, Rect itemBounds);
     }
 
     public void setWheelItemTransformer(WheelItemTransformer itemTransformer) {
@@ -350,25 +386,61 @@ public class WheelView extends View {
 
     public static class SimpleTransformer implements WheelItemTransformer {
         @Override
-        public void transform(Rect itemBounds, float itemAngle, float x, float y, float radius) {
-            sTempRect.set(Math.round(x - radius), Math.round(y - radius), Math.round(x + radius), Math.round(y + radius));
+        public void transform(ItemState itemState, Rect itemBounds) {
+            float radius = itemState.mRadius;
+            float x = itemState.mPosX;
+            float y = itemState.mPosY;
+            itemBounds.set(Math.round(x - radius), Math.round(y - radius), Math.round(x + radius), Math.round(y + radius));
         }
     }
 
     public static class ScalableTransformer implements WheelItemTransformer {
         //TODO scale should be based on the item angle
-        //TODO bad since cant expose sTempRect, need to set bounds or expose bounds w/o object allocation?
         @Override
-        public void transform(Rect itemBounds, float angleFromSelection, float x, float y, float radius) {
-            float scale = angleFromSelection * 0.014f;
+        public void transform(ItemState itemState, Rect itemBounds) {
+            float scale = itemState.mAngleFromSelection * 0.014f;
             scale = Math.min(1.12f, 1.15f - Math.min(0.25f, Math.abs(scale)));
-            radius *= scale;
-            sTempRect.set(Math.round(x - radius), Math.round(y - radius), Math.round(x + radius), Math.round(y + radius));
+            float radius = itemState.mRadius*scale;
+            float x = itemState.mPosX;
+            float y = itemState.mPosY;
+            itemBounds.set(Math.round(x - radius), Math.round(y - radius), Math.round(x + radius), Math.round(y + radius));
+        }
+    }
+
+    public static class ItemState {
+        WheelView mWheelView;
+        float mAngleFromSelection;
+        float mPosX, mPosY;
+        float mRadius;
+        float mRelativePos;
+
+        public WheelView getWheelView() {
+            return mWheelView;
+        }
+
+        public float getAngleFromSlection() {
+            return mAngleFromSelection;
+        }
+
+        public float getX() {
+            return mPosX;
+        }
+
+        public float getY() {
+            return mPosY;
+        }
+
+        public float getRadius() {
+            return mRadius;
+        }
+
+        public float getRelativePosition() {
+            return mRelativePos;
         }
     }
 
     public static interface WheelSelectionTransformer {
-        void transform(Drawable drawable, float angleFromSelection);
+        void transform(Drawable drawable, ItemState itemState);
     }
 
     public static class FadingSelectionTransformer implements WheelSelectionTransformer {
@@ -379,9 +451,8 @@ public class WheelView extends View {
         }
 
         @Override
-        public void transform(Drawable drawable, float angleFromSelection) {
-            //TODO use the relativePosition for both transform callbacks - perhaps just provide an interpolator?
-            float relativePosition = Math.abs(angleFromSelection) / mWheelView.mItemAngle * 2f;
+        public void transform(Drawable drawable, ItemState itemState) {
+            float relativePosition = Math.abs(itemState.mRelativePos);
             int alpha = (int) ((1f - Math.pow(relativePosition, 2.5f)) * 255f);
 
             //clamp to between 0 and 255
@@ -479,7 +550,7 @@ public class WheelView extends View {
         return mSelectionPadding;
     }
 
-    public void setWheelToItemDistance(float distance) {
+    public void setWheelToItemDistance(int distance) {
         mWheelToItemDistance = distance;
     }
 
@@ -487,7 +558,7 @@ public class WheelView extends View {
         return mWheelToItemDistance;
     }
 
-    public void setWheelItemRadius(float radius) {
+    public void setWheelItemRadius(int radius) {
         mItemRadius = radius;
     }
 
@@ -502,7 +573,7 @@ public class WheelView extends View {
         return mItemRadius;
     }
 
-    public void setWheelRadius(float radius) {
+    public void setWheelRadius(int radius) {
         mRadius = radius;
     }
 
@@ -524,7 +595,7 @@ public class WheelView extends View {
         return mItemCount;
     }
 
-    public void setWheelOffsetX(float offsetX) {
+    public void setWheelOffsetX(int offsetX) {
         mOffsetX = offsetX;
         //TODO
     }
@@ -533,13 +604,17 @@ public class WheelView extends View {
         return mOffsetX;
     }
 
-    public void setWheelOffsetY(float offsetY) {
+    public void setWheelOffsetY(int offsetY) {
         mOffsetY = offsetY;
         //TODO
     }
 
     public float getWheelOffsetY() {
         return mOffsetY;
+    }
+
+    public void setWheelPosition(int position) {
+        //TODO
     }
 
     /**
@@ -581,9 +656,14 @@ public class WheelView extends View {
     }
 
     private void setWheelBounds(int width, int height) {
-        //TODO actually use gravity here to figure it out
-        final float centerX = mOffsetX + width*0.5f;
-        final float centerY = mOffsetY + height*0.5f;
+        float relativeVertical = 0.5f, relativeHorizontal = 0.5f;
+        if(isPositionLeft()) relativeHorizontal -= 0.5f;
+        if(isPositionRight()) relativeHorizontal += 0.5f;
+        if(isPositionTop()) relativeVertical -= 0.5f;
+        if(isPositionBottom()) relativeVertical += 0.5f;
+
+        final int centerX = (int) (mOffsetX + width*relativeHorizontal);
+        final int centerY = (int) (mOffsetY + height*relativeVertical);
         mWheelBounds = new Circle(centerX, centerY, mRadius);
 
         if(mWheelDrawable != null) {
@@ -596,6 +676,10 @@ public class WheelView extends View {
             mWheelItemBounds = new ArrayList<Circle>(mItemCount);
         } else if(!mWheelItemBounds.isEmpty()) {
             mWheelItemBounds.clear();
+        }
+
+        if(mWheelToItemDistance == ViewGroup.LayoutParams.MATCH_PARENT) {
+            mWheelToItemDistance = (int) (mWheelBounds.mRadius - mItemRadius - mWheelPadding);
         }
 
         float itemAngleRadians = (float) Math.toRadians(mItemAngle);
@@ -674,6 +758,10 @@ public class WheelView extends View {
 
     public void setPosition(int position) {
         setAngle(getAngleForPosition(position));
+    }
+
+    public int getPosition() {
+        return mSelectedPosition;
     }
 
     public void setAngle(float angle) {
@@ -836,10 +924,6 @@ public class WheelView extends View {
         return Circle.clamp(adapterPosition + circularOffset, mItemCount);
     }
 
-    public int getRawPosition() {
-        return mSelectedPosition;
-    }
-
     /**
      * Estimates the wheel's new angle and angular velocity
      */
@@ -883,91 +967,102 @@ public class WheelView extends View {
         }
 
         int adapterItemCount = mAdapterItemCount;
-        if(mAdapter != null && adapterItemCount > 0) {
-            double angleInRadians = Math.toRadians(angle);
-            double cosAngle = Math.cos(angleInRadians);
-            double sinAngle = Math.sin(angleInRadians);
+        if(mAdapter == null || adapterItemCount <= 0) return;
 
-            int wheelItemOffset = mItemCount / 2;
-            int offset = mSelectedPosition - wheelItemOffset;
-            int length = mItemCount + offset;
-            for(int i = offset; i < length ; i++) {
-                int adapterPosition = rawPositionToAdapterPosition(i);
-                int wheelItemPosition = rawPositionToWheelPosition(i, adapterPosition);
+        double angleInRadians = Math.toRadians(angle);
+        double cosAngle = Math.cos(angleInRadians);
+        double sinAngle = Math.sin(angleInRadians);
 
-                Circle itemBounds = mWheelItemBounds.get(wheelItemPosition);
-                float radius = itemBounds.mRadius;
-                float centerX = mWheelBounds.mCenterX;
-                float centerY = mWheelBounds.mCenterY;
+        int wheelItemOffset = mItemCount / 2;
+        int offset = mSelectedPosition - wheelItemOffset;
+        int length = mItemCount + offset;
+        for(int i = offset; i < length; i++) {
+            int adapterPosition = rawPositionToAdapterPosition(i);
+            int wheelItemPosition = rawPositionToWheelPosition(i, adapterPosition);
 
-                //translate before rotating so that origin is at the wheel's center
-                float x = itemBounds.mCenterX - centerX;
-                float y = itemBounds.mCenterY - centerY;
+            Circle itemBounds = mWheelItemBounds.get(wheelItemPosition);
+            float radius = itemBounds.mRadius;
+            float centerX = mWheelBounds.mCenterX;
+            float centerY = mWheelBounds.mCenterY;
 
-                //rotate
-                float x1 = (float) (x * cosAngle - y * sinAngle);
-                float y1 = (float) (x * sinAngle + y * cosAngle);
+            //translate before rotating so that origin is at the wheel's center
+            float x = itemBounds.mCenterX - centerX;
+            float y = itemBounds.mCenterY - centerY;
 
-                //translate back after rotation
-                x1 += centerX;
-                y1 += centerY;
+            //rotate
+            float x1 = (float) (x * cosAngle - y * sinAngle);
+            float y1 = (float) (x * sinAngle + y * cosAngle);
 
-                //Rect bounds, x, y, radius, angle
-                float angleFromSelection = Circle.shortestAngle(mWheelBounds.angleToDegrees(x1, y1), mSelectionAngle);
-                mItemTransformer.transform(sTempRect, angleFromSelection, x1, y1, radius);
+            //translate back after rotation
+            x1 += centerX;
+            y1 += centerY;
 
-                CacheItem cacheItem = mItemCacheArray[adapterPosition];
-                if(cacheItem == null) {
-                    cacheItem = new CacheItem();
-                    mItemCacheArray[adapterPosition] = cacheItem;
+            //Rect bounds, x, y, radius, angle
+            updateItemState(x1, y1, radius);
+            mItemTransformer.transform(mItemState, sTempRect);
+
+            CacheItem cacheItem = mItemCacheArray[adapterPosition];
+            if(cacheItem == null) {
+                cacheItem = new CacheItem();
+                mItemCacheArray[adapterPosition] = cacheItem;
+            }
+
+            //don't draw if outside of the view bounds
+            if(Rect.intersects(sTempRect, mViewBounds)) {
+                if(cacheItem.mDirty) {
+                    cacheItem.mDrawable = mAdapter.getDrawable(adapterPosition);
+                    cacheItem.mDirty = false;
                 }
 
-                //don't draw if outside of the view bounds
-                if(Rect.intersects(sTempRect, mViewBounds)) {
-                    if(cacheItem.mDirty) {
-                        cacheItem.mDrawable = mAdapter.getDrawable(adapterPosition);
-                        cacheItem.mDirty = false;
+                if(!cacheItem.mIsVisible) {
+                    cacheItem.mIsVisible = true;
+                    if(mOnItemVisibilityChangeListener != null) {
+                        mOnItemVisibilityChangeListener.onItemVisibilityChange(mAdapter, adapterPosition, true);
                     }
+                }
 
-                    if(!cacheItem.mIsVisible) {
-                        cacheItem.mIsVisible = true;
-                        if(mOnItemVisibilityChangeListener != null) {
-                            mOnItemVisibilityChangeListener.onItemVisibilityChange(mAdapter, adapterPosition, true);
-                        }
-                    }
+                if(i == mSelectedPosition && mSelectionDrawable != null) {
+                    mSelectionDrawable.setBounds(sTempRect.left - mSelectionPadding, sTempRect.top - mSelectionPadding,
+                            sTempRect.right + mSelectionPadding, sTempRect.bottom + mSelectionPadding);
+                    mSelectionTransformer.transform(mSelectionDrawable, mItemState);
+                    mSelectionDrawable.draw(canvas);
+                }
 
-                    if(i == mSelectedPosition && mSelectionDrawable != null) {
-                        mSelectionDrawable.setBounds(sTempRect.left - mSelectionPadding, sTempRect.top - mSelectionPadding,
-                                sTempRect.right + mSelectionPadding, sTempRect.bottom + mSelectionPadding);
-                        mSelectionTransformer.transform(mSelectionDrawable, angleFromSelection);
-                        mSelectionDrawable.draw(canvas);
-                    }
-
-                    Drawable drawable;
-                    if(cacheItem.mDrawable != null) {
-                        drawable = cacheItem.mDrawable;
-                    } else {
-                        if(mEmptyItemDrawable != null) {
-                            drawable = mEmptyItemDrawable;
-                        } else {
-                            drawable = null;
-                        }
-                    }
-
-                    if(drawable != null) {
-                        drawable.setBounds(sTempRect);
-                        drawable.draw(canvas);
-                    }
+                Drawable drawable;
+                if(cacheItem.mDrawable != null) {
+                    drawable = cacheItem.mDrawable;
                 } else {
-                    if(cacheItem.mIsVisible) {
-                        cacheItem.mIsVisible = false;
-                        if(mOnItemVisibilityChangeListener != null) {
-                            mOnItemVisibilityChangeListener.onItemVisibilityChange(mAdapter, adapterPosition, false);
-                        }
+                    if(mEmptyItemDrawable != null) {
+                        drawable = mEmptyItemDrawable;
+                    } else {
+                        drawable = null;
+                    }
+                }
+
+                if(drawable != null) {
+                    drawable.setBounds(sTempRect);
+                    drawable.draw(canvas);
+                }
+            } else {
+                if(cacheItem.mIsVisible) {
+                    cacheItem.mIsVisible = false;
+                    if(mOnItemVisibilityChangeListener != null) {
+                        mOnItemVisibilityChangeListener.onItemVisibilityChange(mAdapter, adapterPosition, false);
                     }
                 }
             }
         }
+    }
+
+    private void updateItemState(float x, float y, float radius) {
+        float angleFromSelection = Circle.shortestAngle(mWheelBounds.angleToDegrees(x, y), mSelectionAngle);
+        float relativePos = angleFromSelection / mItemAngle * 2f;
+
+        mItemState.mAngleFromSelection = angleFromSelection;
+        mItemState.mRelativePos = relativePos;
+        mItemState.mPosX = x;
+        mItemState.mPosY = y;
+        mItemState.mRadius = radius; //The radius is always known - doesn't really need this?
     }
 
     private Drawable createOvalDrawable(int color) {
@@ -1001,6 +1096,7 @@ public class WheelView extends View {
         }
 
         static float clamp180(float value) {
+            //TODO clamp(int value, int upperLimit) could use this code? + test it
             return (((value + 180f) % 360f + 360f) % 360f) - 180f;
         }
 
