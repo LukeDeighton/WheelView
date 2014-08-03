@@ -34,6 +34,9 @@ wheelView.setAdapter(new WheelView.WheelAdapter() {
 });
 ```
 
+Attributes
+----------
+
 The WheelView is highly customisable with many attributes that can be set via xml or programmatically (recommend using xml as programmatically set attributes is half implemented at the moment). Here are the custom attributes that can be declared in xml:
 
   * wheelDrawable
