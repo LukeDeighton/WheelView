@@ -33,7 +33,7 @@ public class MainActivity extends Activity {
             entries.add(entry);
         }
 
-        //populate the adapter that knows how to draw each item (as you would do with a ListAdapter)
+        //populate the adapter, that knows how to draw each item (as you would do with a ListAdapter)
         wheelView.setAdapter(new MaterialAdapter(entries));
 
         //a listener for receiving a callback for when the item closest to the selection angle changes

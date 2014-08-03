@@ -9,6 +9,7 @@
         android:layout_height="match_parent"
         app:emptyItemColor="@color/green_900"
         app:wheelColor="@color/grey_400"
+        app:rotatableWheelDrawable="false"
         app:selectionAngle="90.0"
         app:selectionColor="@color/teal_900"
         app:selectionPadding="4dp"
