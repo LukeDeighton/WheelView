@@ -8,18 +8,31 @@ The library is still in its infancy so if there are any bugs or missing features
 Usage
 -----
 
-To determine the item that is most selected set an `OnWheelItemSelectListener`. The listener will be called when the closest item to the `SelectionAngle` changes.
-```java
-wheelView.setOnWheelItemSelectedListener(new WheelView.OnWheelItemSelectListener() {
-    @Override
-    public void onWheelItemSelected(WheelView parent, int position) {
-        //the adapter position that is closest to the selection angle
-    }
-});
+1) Add the custom view in xml
+```xml
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <com.lukedeighton.wheelview.WheelView
+        android:id="@+id/wheelview"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        app:wheelColor="@color/grey_400"
+        app:rotatableWheelDrawable="false"
+        app:selectionAngle="90.0"
+        app:wheelPosition="bottom"
+        app:wheelOffsetY="60dp"
+        app:repeatItems="true"
+        app:wheelRadius="276dp"
+        app:wheelItemCount="14"
+        app:wheelPadding="13dp"
+        app:wheelItemRadius="43dp"/>
+</RelativeLayout>
 ```
 
-The number of positions on the wheel is independent to the data to be displayed on the wheel. To link data to the wheel items use the `WheelAdapter` which has similar responsiblity to that of a ListView's `ListAdapter`, however currently only works with Drawables.
-
+2) Set a `WheelAdapter` similar to how you would do with a ListView
 ```java
 wheelView.setAdapter(new WheelView.WheelAdapter() {
     @Override
@@ -30,6 +43,16 @@ wheelView.setAdapter(new WheelView.WheelAdapter() {
     @Override
     public int getCount() {
         //return the count
+    }
+});
+```
+
+3) Set a listener to receive a callback when the closest item to the `SelectionAngle` changes.
+```java
+wheelView.setOnWheelItemSelectedListener(new WheelView.OnWheelItemSelectListener() {
+    @Override
+    public void onWheelItemSelected(WheelView parent, int position) {
+        //the adapter position that is closest to the selection angle
     }
 });
 ```
