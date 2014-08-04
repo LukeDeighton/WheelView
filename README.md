@@ -32,7 +32,7 @@ Usage
 </RelativeLayout>
 ```
 
-2) Set a `WheelAdapter` similar to how you would do with a ListView
+2) Set a `WheelAdapter` similar to how you would set an adapter with a ListView
 ```java
 wheelView.setAdapter(new WheelView.WheelAdapter() {
     @Override
