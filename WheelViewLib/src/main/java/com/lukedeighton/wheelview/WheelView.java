@@ -25,9 +25,11 @@ import android.graphics.drawable.Drawable;
 import android.graphics.drawable.ShapeDrawable;
 import android.graphics.drawable.shapes.OvalShape;
 import android.os.SystemClock;
+import android.support.annotation.NonNull;
 import android.util.AttributeSet;
 import android.view.InflateException;
 import android.view.MotionEvent;
+import android.view.VelocityTracker;
 import android.view.View;
 import android.view.ViewGroup;
 
@@ -52,9 +54,8 @@ public class WheelView extends View {
 
     private static final float VELOCITY_FRICTION_COEFFICIENT = 0.015f;
     private static final float CONSTANT_FRICTION_COEFFICIENT = 0.0028f;
-    private static final float ANGULAR_VEL_COEFFICIENT = 29f;
+    private static final float ANGULAR_VEL_COEFFICIENT = 22f;
     private static final float MAX_ANGULAR_VEL = 0.3f;
-    private static final int SMOOTH_AVG_COUNT = 4;
 
     private static final int LEFT_MASK = 0x01;
     private static final int RIGHT_MASK = 0x02;
@@ -77,13 +78,16 @@ public class WheelView extends View {
         }
     }
 
-    private Vector mForceVector = new Vector(); //TODO do i need this reference?
-    private AveragingFifoFloat mAvgAngularAccel = new AveragingFifoFloat(SMOOTH_AVG_COUNT);
+    private VelocityTracker mVelocityTracker;
+    private Vector mForceVector = new Vector();
+    private Vector mRadiusVector = new Vector();
     private float mAngle;
     private float mAngularVelocity;
     private long mLastUpdateTime;
     private boolean mRequiresUpdate;
     private int mSelectedPosition;
+    private float mLastWheelTouchX;
+    private float mLastWheelTouchY;
 
     private ItemState mItemState = new ItemState();
     private CacheItem[] mItemCacheArray;
@@ -117,6 +121,7 @@ public class WheelView extends View {
     private int mWheelToItemDistance;
     private int mItemRadius;
     private int mRadius;
+    private int mRadiusSquared;
     private int mOffsetX;
     private int mOffsetY;
     private int mItemCount;
@@ -134,8 +139,6 @@ public class WheelView extends View {
 
     private boolean mIsDraggingWheel;
     private float mLastTouchAngle;
-    private float mLastTouchX, mLastTouchY;
-    private long mLastTouchTime;
 
     private OnAngleChangeListener mOnAngleChangeListener;
     private OnWheelItemSelectListener mOnItemSelectListener;
@@ -196,7 +199,7 @@ public class WheelView extends View {
         mIsRepeatable = a.getBoolean(R.styleable.WheelView_repeatItems, false);
         mIsWheelDrawableRotatable = a.getBoolean(R.styleable.WheelView_rotatableWheelDrawable, true);
         mSelectionAngle = a.getFloat(R.styleable.WheelView_selectionAngle, 0f);
-        mRadius = a.getLayoutDimension(R.styleable.WheelView_wheelRadius, 0 /* TODO Wrap_content */);
+        setWheelRadius(a.getLayoutDimension(R.styleable.WheelView_wheelRadius, 0 /* TODO Wrap_content */));
         mOffsetX = a.getDimensionPixelSize(R.styleable.WheelView_wheelOffsetX, 0);
         mOffsetY = a.getDimensionPixelSize(R.styleable.WheelView_wheelOffsetY, 0);
         mWheelToItemDistance = a.getLayoutDimension(R.styleable.WheelView_wheelToItemDistance, ViewGroup.LayoutParams.MATCH_PARENT);
@@ -575,6 +578,8 @@ public class WheelView extends View {
 
     public void setWheelRadius(int radius) {
         mRadius = radius;
+
+        if(radius >= 0) mRadiusSquared = radius * radius;
     }
 
     public float getWheelRadius() {
@@ -807,13 +812,12 @@ public class WheelView extends View {
     }
 
     @Override
-    public boolean onTouchEvent(MotionEvent event) {
+    public boolean onTouchEvent(@NonNull MotionEvent event) {
         final float x = event.getX();
         final float y = event.getY();
 
         if(!mWheelBounds.contains(x, y)) {
             if(mIsDraggingWheel) {
-                mIsDraggingWheel = false;
                 flingWheel();
             }
             return true;
@@ -821,57 +825,32 @@ public class WheelView extends View {
 
         switch (event.getAction() & MotionEvent.ACTION_MASK) {
             case MotionEvent.ACTION_DOWN:
-                startWheelDrag(x, y);
-                mIsDraggingWheel = true;
+                if(!mIsDraggingWheel) {
+                    startWheelDrag(event, x, y);
+                }
                 break;
             case MotionEvent.ACTION_UP:
             case MotionEvent.ACTION_CANCEL:
                 if(mIsDraggingWheel) {
-                    mIsDraggingWheel = false;
                     flingWheel();
                 }
+
+                mVelocityTracker.recycle();
+                mVelocityTracker = null;
                 break;
             case MotionEvent.ACTION_MOVE:
                 if(!mIsDraggingWheel) {
-                    mIsDraggingWheel = true;
-                    startWheelDrag(x, y);
+                    startWheelDrag(event, x, y);
                     return true;
                 }
 
-                //option to use w = dTheta/dt instead of using the torque approach
-                //could possibly use a velocity tracker here, not sure about the performance though
-                float dx = x - mLastTouchX;
-                float dy = y - mLastTouchY;
+                mVelocityTracker.addMovement(event);
+                mLastWheelTouchX = x;
+                mLastWheelTouchY = y;
+                setRadiusVector(x, y);
 
-                long currentTime = SystemClock.uptimeMillis();
-                long timeDiff = currentTime - mLastTouchTime;
-                mLastTouchTime = currentTime;
-
-                //avoid NaN's that may happen when divide by 0
-                if(timeDiff < 1) timeDiff = 1;
-
-                float velX = dx / timeDiff;
-                float velY = dy / timeDiff;
-
-                //approximate the force as the velocity vector between last and current touch points
-                mForceVector.set(velX, velY);
-                mLastTouchX = x;
-                mLastTouchY = y;
-
-                float touchVectorX = mWheelBounds.mCenterX - x;
-                float touchVectorY = mWheelBounds.mCenterY - y;
-
-                //torque = r X F
-                float torque = mForceVector.crossProduct(touchVectorX, touchVectorY);
-
-                float wheelRadius = mWheelBounds.mRadius;
-                float wheelRadiusSquared = wheelRadius * wheelRadius;
-
-                //dw/dt = torque / I = torque / mr^2
-                mAvgAngularAccel.add(torque / wheelRadiusSquared);
-
-                float touchRadiusSquared = touchVectorX*touchVectorX + touchVectorY*touchVectorY;
-                float touchFactor = TOUCH_FACTORS[(int) (touchRadiusSquared / wheelRadiusSquared * TOUCH_FACTORS.length)];
+                float touchRadiusSquared = mRadiusVector.x*mRadiusVector.x + mRadiusVector.y*mRadiusVector.y;
+                float touchFactor = TOUCH_FACTORS[(int) (touchRadiusSquared / mRadiusSquared * TOUCH_FACTORS.length)];
                 float touchAngle = mWheelBounds.angleToDegrees(x, y);
                 addAngle(-1f * Circle.shortestAngle(touchAngle, mLastTouchAngle) * touchFactor);
                 mLastTouchAngle = touchAngle;
@@ -884,16 +863,32 @@ public class WheelView extends View {
         return true;
     }
 
-    private void startWheelDrag(float x, float y) {
+    private void startWheelDrag(MotionEvent event, float x, float y) {
+        mIsDraggingWheel = true;
+
+        if(mVelocityTracker == null) {
+            mVelocityTracker = VelocityTracker.obtain();
+        } else {
+            mVelocityTracker.clear();
+        }
+        mVelocityTracker.addMovement(event);
+
         mAngularVelocity = 0f;
         mLastTouchAngle = mWheelBounds.angleToDegrees(x, y);
-        mLastTouchX = x;
-        mLastTouchY = y;
-        mLastTouchTime = SystemClock.uptimeMillis();
     }
 
     private void flingWheel() {
-        float angularAccel = mAvgAngularAccel.mAverage;
+        mIsDraggingWheel = false;
+
+        mVelocityTracker.computeCurrentVelocity(1);
+
+        //torque = r X F
+        mForceVector.set(mVelocityTracker.getXVelocity(), mVelocityTracker.getYVelocity());
+        setRadiusVector(mLastWheelTouchX, mLastWheelTouchY);
+        float torque = mForceVector.crossProduct(mRadiusVector);
+
+        //dw/dt = torque / I = torque / mr^2
+        float angularAccel = torque / mRadiusSquared;
 
         //estimate an angular velocity based on the strength of the angular acceleration
         float angularVel = angularAccel * ANGULAR_VEL_COEFFICIENT;
@@ -901,14 +896,18 @@ public class WheelView extends View {
         //clamp the angular velocity
         if(angularVel > MAX_ANGULAR_VEL) angularVel = MAX_ANGULAR_VEL;
         else if(angularVel < -MAX_ANGULAR_VEL) angularVel = -MAX_ANGULAR_VEL;
-
         mAngularVelocity = angularVel;
 
-        mAvgAngularAccel.reset();
         mLastUpdateTime = SystemClock.uptimeMillis();
         mRequiresUpdate = true;
 
         invalidate();
+    }
+
+    private void setRadiusVector(float x, float y) {
+        float rVectorX = mWheelBounds.mCenterX - x;
+        float rVectorY = mWheelBounds.mCenterY - y;
+        mRadiusVector.set(rVectorX, rVectorY);
     }
 
     public int rawPositionToAdapterPosition(int position) {
@@ -1155,55 +1154,13 @@ public class WheelView extends View {
             this.y = y;
         }
 
-        float crossProduct(float x, float y) {
-            return this.x * y - this.y * x;
+        float crossProduct(Vector vector) {
+            return this.x * vector.y - this.y * vector.x;
         }
 
         @Override
         public String toString() {
             return "Vector: (" + this.x + ", " + this.y + ")";
-        }
-    }
-
-    /**
-     * Acts like a circular buffer, where the {@link #add(float)} method keeps a running average.
-     * When the array of {@link #mPoints} is full, the first index is replaced by the next float {@link #add(float)}
-     * This gives a smoother motion when {@link #flingWheel()} occurs.
-     * It serves as a lightweight version of {@link android.view.VelocityTracker} but not as accurate at estimating,
-     * since I'm doing a simple average (and I believe VelocityTracker does a polynomial best fit?)
-     */
-    static class AveragingFifoFloat {
-        float[] mPoints;
-        float mAverage;
-        int mCurrentIndex;
-        final int mCapacity;
-        int mSize;
-
-        AveragingFifoFloat(int capacity) {
-            mCapacity = capacity;
-            mPoints = new float[capacity];
-        }
-
-        void reset() {
-            for(int i = 0; i < mSize; i++) {
-                mPoints[i] = 0f;
-            }
-            mSize = 0;
-            mAverage = 0f;
-        }
-
-        void add(float value) {
-            float total = mAverage * mSize;
-
-            if(mSize < mCapacity) {
-                mSize++;
-            } else {
-                total -= mPoints[mCurrentIndex];
-            }
-
-            mAverage = (total + value) / mSize;
-            mPoints[mCurrentIndex++] = value;
-            if(mCurrentIndex >= mCapacity) mCurrentIndex = 0;
         }
     }
 }
