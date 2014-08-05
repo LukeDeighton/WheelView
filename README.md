@@ -89,5 +89,11 @@ The WheelView is highly customisable with many attributes that can be set via xm
   * wheelItemTransformer
   * selectionTransformer
 
+License
+-------
+
+Apache License Version 2.0
+http://apache.org/licenses/LICENSE-2.0.txt
+
 [1]: ./Graphics/bottom_wheel.gif
 [2]: ./Graphics/center_wheel.gif
