@@ -5,6 +5,11 @@ WheelView is an Android library that allows drawables to be placed on a rotatabl
 
 The library is still in its infancy so if there are any bugs or missing features please let me know!
 
+![1]
+![2]
+
+Note - Framerate is much better than these poorly converted gifs!
+
 Usage
 -----
 
@@ -83,3 +88,6 @@ The WheelView is highly customisable with many attributes that can be set via xm
   * wheelPadding
   * wheelItemTransformer
   * selectionTransformer
+
+[1]: ./Graphics/bottom_wheel.gif
+[2]: ./Graphics/center_wheel.gif
