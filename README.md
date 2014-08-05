@@ -42,7 +42,7 @@ Usage
 wheelView.setAdapter(new WheelView.WheelAdapter() {
     @Override
     public Drawable getDrawable(int position) {
-        //return drawable here
+        //return drawable here - the position can be seen in the gifs above
     }
 
     @Override
