@@ -63,13 +63,14 @@ public class WheelView extends View {
     private static final int BOTTOM_MASK = 0x08;
 
     private static final int NEVER_USED = 0;
+    private static final int SIZE_VAL = 20;
 
     //The following code is used to avoid sqrt operations during touch drag events
     private static final float TOUCH_DRAG_COEFFICIENT = 0.8f;
     private static final float[] TOUCH_FACTORS;
 
     static {
-        int size = 20;
+        int size = SIZE_VAL;
         TOUCH_FACTORS = new float[size];
         int maxIndex = size - 1;
         float numerator = size * size;
