@@ -21,7 +21,7 @@ public class MaterialColor {
         HashMap<String, Integer> materialHashMap = new HashMap<String, Integer>(fields.length);
         for(Field field : fields) {
             String fieldName = field.getName();
-            if(fieldName.startsWith("abc")) continue;;
+            if (fieldName.startsWith("abc")) continue;;
 
             try {
                 int resId = field.getInt(null);
@@ -35,14 +35,14 @@ public class MaterialColor {
     }
 
     public static Map.Entry<String, Integer> random(Context context, String regex) {
-        if(sMaterialHashMap == null) {
+        if (sMaterialHashMap == null) {
             sMaterialHashMap = getMaterialColors(context);
         }
 
         Pattern pattern = Pattern.compile(regex);
         List<Map.Entry<String, Integer>> materialColors = new ArrayList<Map.Entry<String, Integer>>();
         for(Map.Entry<String, Integer> entry : sMaterialHashMap.entrySet()) {
-            if(!pattern.matcher(entry.getKey()).matches()) continue;
+            if (!pattern.matcher(entry.getKey()).matches()) continue;
             materialColors.add(entry);
         }
 
@@ -57,7 +57,7 @@ public class MaterialColor {
     public static String getColorName(Map.Entry<String, Integer> entry) {
         String color = entry.getKey();
         Matcher matcher = sColorPattern.matcher(color);
-        if(matcher.find()) {
+        if (matcher.find()) {
             return color.substring(0, matcher.start());
         }
         return null;

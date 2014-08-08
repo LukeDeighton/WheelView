@@ -10,6 +10,7 @@ import android.view.Menu;
 import android.view.MenuItem;
 
 import com.lukedeighton.wheelview.WheelView;
+import com.lukedeighton.wheelview.adapter.WheelArrayAdapter;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -71,29 +72,18 @@ public class MainActivity extends Activity {
         return super.onOptionsItemSelected(item);
     }
 
-    static class MaterialAdapter implements WheelView.WheelAdapter {
-        private List<Map.Entry<String, Integer>> mEntries;
-
+    static class MaterialAdapter extends WheelArrayAdapter<Map.Entry<String, Integer>> {
         MaterialAdapter(List<Map.Entry<String, Integer>> entries) {
-            mEntries = entries;
+            super(entries);
         }
 
         @Override
         public Drawable getDrawable(int position) {
             Drawable[] drawable = new Drawable[] {
-                    createOvalDrawable(mEntries.get(position).getValue()),
+                    createOvalDrawable(getItem(position).getValue()),
                     new TextDrawable(String.valueOf(position))
             };
             return new LayerDrawable(drawable);
-        }
-
-        @Override
-        public int getCount() {
-            return mEntries.size();
-        }
-
-        public Map.Entry<String, Integer> getItem(int position) {
-            return mEntries.get(position);
         }
 
         private Drawable createOvalDrawable(int color) {

@@ -15,11 +15,15 @@
         app:selectionPadding="4dp"
         app:repeatItems="true"
         app:wheelRadius="276dp"
-        app:wheelOffsetY="60dp"
         app:wheelItemCount="14"
-        app:wheelPosition="bottom"
         app:wheelPadding="13dp"
+        app:wheelOffsetY="60dp"
+        app:wheelPosition="bottom"
+        app:wheelItemTransformer="com.lukedeighton.wheelview.transformer.SimpleItemTransformer"
         app:wheelItemRadius="43dp"/>
 
-    <!-- app:wheelItemTransformer="com.lukedeighton.wheelview.WheelView$SimpleTransformer" -->
+    <!--
+
+
+    -->
 </RelativeLayout>
