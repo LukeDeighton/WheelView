@@ -373,7 +373,7 @@ public class WheelView extends View {
         void onWheelAngleChange(float angle);
     }
 
-    public void setOnAngleChangeListener(OnWheelAngleChangeListener listener) {
+    public void setOnWheelAngleChangeListener(OnWheelAngleChangeListener listener) {
         mOnAngleChangeListener = listener;
     }
 
