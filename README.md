@@ -1,7 +1,7 @@
 WheelView
 =========
 
-WheelView is an Android library that allows drawables to be placed on a rotatable wheel. It behaves like a Circular ListView where items rotate rather than scroll vertically. It isn't limited by the number of items that can fit on the wheel since it will cycle through each position when the wheel is rotated. The wheel can be rotated at any angle and from any position.
+WheelView is an Android library that allows drawables to be placed on a rotatable wheel. It behaves like a Circular ListView where items rotate rather than scroll vertically. It isn't limited by the number of items that can fit on the wheel since it will cycle through each adapter position when the wheel is rotated. The wheel can be rotated at any angle and from any position.
 
 The `WheelView` can be used as a way to select one item from a list. The `SelectionAngle` determines what position on the wheel is selected. You can also receive a callback for when an item is clicked, and whether it is selected. Have a look at the sample for a working example!
 
