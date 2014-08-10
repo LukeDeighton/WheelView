@@ -158,7 +158,7 @@ public class WheelView extends View {
     private float mDraggedAngle;
 
     private OnWheelItemClickListener mOnItemClickListener;
-    private OnAngleChangeListener mOnAngleChangeListener;
+    private OnWheelAngleChangeListener mOnAngleChangeListener;
     private OnWheelItemSelectListener mOnItemSelectListener;
     private OnWheelItemVisibilityChangeListener mOnItemVisibilityChangeListener;
     private WheelItemTransformer mItemTransformer;
@@ -366,18 +366,18 @@ public class WheelView extends View {
     /**
      * A listener for when the wheel angle is changed.
      */
-    public static interface OnAngleChangeListener {
+    public static interface OnWheelAngleChangeListener {
         /**
          * Receive a callback when the wheel's angle is changed.
          */
-        void onAngleChange(float angle);
+        void onWheelAngleChange(float angle);
     }
 
-    public void setOnAngleChangeListener(OnAngleChangeListener listener) {
+    public void setOnAngleChangeListener(OnWheelAngleChangeListener listener) {
         mOnAngleChangeListener = listener;
     }
 
-    public OnAngleChangeListener getOnAngleChangeListener() {
+    public OnWheelAngleChangeListener getOnWheelAngleChangeListener() {
         return mOnAngleChangeListener;
     }
 
@@ -722,7 +722,7 @@ public class WheelView extends View {
         updateSelectionPosition();
 
         if (mOnAngleChangeListener != null) {
-            mOnAngleChangeListener.onAngleChange(mAngle);
+            mOnAngleChangeListener.onWheelAngleChange(mAngle);
         }
 
         invalidate();
