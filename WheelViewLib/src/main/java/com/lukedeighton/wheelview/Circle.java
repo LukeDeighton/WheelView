@@ -3,8 +3,10 @@ package com.lukedeighton.wheelview;
 import android.graphics.Rect;
 
 public class Circle {
-    final float mCenterX, mCenterY;
-    final float mRadius;
+    float mCenterX, mCenterY;
+    float mRadius;
+
+    Circle() {}
 
     Circle(float centerX, float centerY, float radius) {
         mCenterX = centerX;
@@ -13,9 +15,21 @@ public class Circle {
     }
 
     boolean contains(float x, float y) {
-        x = this.mCenterX - x;
-        y = this.mCenterY - y;
+        x = mCenterX - x;
+        y = mCenterY - y;
         return x * x + y * y <= mRadius * mRadius;
+    }
+
+    public float getCenterX() {
+        return mCenterX;
+    }
+
+    public float getCenterY() {
+        return mCenterY;
+    }
+
+    public float getRadius() {
+        return mRadius;
     }
 
     Rect getBoundingRect() {

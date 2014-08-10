@@ -17,13 +17,13 @@
         app:wheelRadius="276dp"
         app:wheelItemCount="14"
         app:wheelPadding="13dp"
-        app:wheelOffsetY="60dp"
-        app:wheelPosition="bottom"
-        app:wheelItemTransformer="com.lukedeighton.wheelview.transformer.SimpleItemTransformer"
-        app:wheelItemRadius="43dp"/>
+        app:wheelItemRadius="41dp"/>
 
     <!--
+            app:wheelPosition="bottom"
+                    app:wheelOffsetY="60dp"
 
+        app:wheelItemTransformer="com.lukedeighton.wheelview.transformer.SimpleItemTransformer"
 
     -->
 </RelativeLayout>
