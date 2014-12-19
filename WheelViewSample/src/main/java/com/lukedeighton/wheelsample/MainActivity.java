@@ -36,14 +36,14 @@ public class MainActivity extends Activity {
         }
 
         //populate the adapter, that knows how to draw each item (as you would do with a ListAdapter)
-        wheelView.setAdapter(new MaterialAdapter(entries));
+        wheelView.setAdapter(new MaterialColorAdapter(entries));
 
         //a listener for receiving a callback for when the item closest to the selection angle changes
         wheelView.setOnWheelItemSelectedListener(new WheelView.OnWheelItemSelectListener() {
             @Override
             public void onWheelItemSelected(WheelView parent, int position) {
                 //get the item at this position
-                Map.Entry<String, Integer> selectedEntry = ((MaterialAdapter) parent.getAdapter()).getItem(position);
+                Map.Entry<String, Integer> selectedEntry = ((MaterialColorAdapter) parent.getAdapter()).getItem(position);
                 parent.setSelectionColor(getContrastColor(selectedEntry));
             }
         });
@@ -81,8 +81,8 @@ public class MainActivity extends Activity {
         return super.onOptionsItemSelected(item);
     }
 
-    static class MaterialAdapter extends WheelArrayAdapter<Map.Entry<String, Integer>> {
-        MaterialAdapter(List<Map.Entry<String, Integer>> entries) {
+    static class MaterialColorAdapter extends WheelArrayAdapter<Map.Entry<String, Integer>> {
+        MaterialColorAdapter(List<Map.Entry<String, Integer>> entries) {
             super(entries);
         }
 
