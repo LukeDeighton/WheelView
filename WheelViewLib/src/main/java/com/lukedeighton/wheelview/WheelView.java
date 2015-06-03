@@ -52,6 +52,8 @@ import java.util.List;
 //TODO onWheelItemVisibilityChange needs to factor in when items are cycled within view bounds and should that have another callback?
 //TODO option to get wheel state (either flinging or dragging)
 //TODO item radius works separately ? uses min angle etc. to figure out in the layout event
+//TODO setWheelVelocity method
+//TODO util method to animate to a wheel position?
 
 public class WheelView extends View {
 
@@ -178,7 +180,7 @@ public class WheelView extends View {
         super(context, attrs, defStyle);
         initWheelView();
 
-        //TODO follow this pattern from android source - better performance
+        //TODO possible pattern to follow from android source
         /* final int N = a.getIndexCount();
         for (int i = 0; i < N; i++) {
             int attr = a.getIndex(i);
@@ -264,7 +266,6 @@ public class WheelView extends View {
     }
 
     @SuppressWarnings("unchecked")
-    //TODO what is attr.getValue(TypedValue ? - can it replace this mess?
     private <T> T validateAndInstantiate(String clazzName, Class<? extends T> clazz) {
         String errorMessage;
         T instance;
@@ -364,11 +365,11 @@ public class WheelView extends View {
     }
 
     /**
-     * A listener for when the wheel angle is changed.
+     * A listener for when the wheel's angle has changed.
      */
     public static interface OnWheelAngleChangeListener {
         /**
-         * Receive a callback when the wheel's angle is changed.
+         * Receive a callback when the wheel's angle has changed.
          */
         void onWheelAngleChange(float angle);
     }
@@ -729,19 +730,21 @@ public class WheelView extends View {
     }
 
     private void updateSelectionPosition() {
-        int selectedPosition = (int) ((-mAngle + -0.5*Math.signum(mAngle)*mItemAngle) / mItemAngle);
+        int position = (int) ((-mAngle + -0.5 * Math.signum(mAngle) * mItemAngle) / mItemAngle);
 
-        int currentSelectedPosition = getSelectedPosition();
-        if (selectedPosition != currentSelectedPosition) {
-            setSelectedPosition(selectedPosition);
-        }
+        setSelectedPosition(position);
+    }
+
+    private boolean isSelectablePosition(int position) {
+        return mIsRepeatable || (position < mAdapterItemCount && position >= 0);
     }
 
     private void setSelectedPosition(int position) {
         if (mSelectedPosition == position) return;
+
         mSelectedPosition = position;
 
-        if (mOnItemSelectListener != null) {
+        if (mOnItemSelectListener != null && isSelectablePosition(position)) {
             mOnItemSelectListener.onWheelItemSelected(this, getSelectedPosition());
         }
     }
@@ -891,6 +894,18 @@ public class WheelView extends View {
         return Circle.clamp(adapterPosition + circularOffset, mItemCount);
     }
 
+    @Override
+    protected void onDraw(Canvas canvas) {
+        updateWheelStateIfReq();
+
+        drawWheel(canvas);
+
+        if (mAdapter == null || mAdapterItemCount <= 0) return;
+
+        drawWheelItems(canvas);
+    }
+
+
     /**
      * Estimates the wheel's new angle and angular velocity
      */
@@ -898,6 +913,7 @@ public class WheelView extends View {
         float vel = mAngularVelocity;
         float velSqr = vel*vel;
         if (vel > 0f) {
+            //TODO the damping is not based on time
             mAngularVelocity -= velSqr * VELOCITY_FRICTION_COEFFICIENT + CONSTANT_FRICTION_COEFFICIENT;
             if (mAngularVelocity < 0f) mAngularVelocity = 0f;
         } else if (vel < 0f) {
@@ -912,31 +928,30 @@ public class WheelView extends View {
         }
     }
 
-    @Override
-    protected void onDraw(Canvas canvas) {
+    private void updateWheelStateIfReq() {
         if (mRequiresUpdate) {
             long currentTime = SystemClock.uptimeMillis();
             long timeDiff = currentTime - mLastUpdateTime;
             mLastUpdateTime = currentTime;
             update(timeDiff);
         }
+    }
 
-        float angle = mAngle;
+    private void drawWheel(Canvas canvas) {
         if (mWheelDrawable != null) {
             if (mIsWheelDrawableRotatable) {
                 canvas.save();
-                canvas.rotate(angle, mWheelBounds.mCenterX, mWheelBounds.mCenterY);
+                canvas.rotate(mAngle, mWheelBounds.mCenterX, mWheelBounds.mCenterY);
                 mWheelDrawable.draw(canvas);
                 canvas.restore();
             } else {
                 mWheelDrawable.draw(canvas);
             }
         }
+    }
 
-        int adapterItemCount = mAdapterItemCount;
-        if (mAdapter == null || adapterItemCount <= 0) return;
-
-        double angleInRadians = Math.toRadians(angle);
+    private void drawWheelItems(Canvas canvas) {
+        double angleInRadians = Math.toRadians(mAngle);
         double cosAngle = Math.cos(angleInRadians);
         double sinAngle = Math.sin(angleInRadians);
         float centerX = mWheelBounds.mCenterX;
@@ -968,27 +983,34 @@ public class WheelView extends View {
             updateItemState(itemState, adapterPosition, x1, y1, radius);
             mItemTransformer.transform(itemState, sTempRect);
 
-            CacheItem cacheItem = mItemCacheArray[adapterPosition];
-            if (cacheItem == null) {
+            boolean isEmptyPosition = adapterPosition < 0 || adapterPosition >= mItemCacheArray.length;
+            CacheItem cacheItem;
+            if (isEmptyPosition) {
+                cacheItem = null;
+            } else {
+                cacheItem = mItemCacheArray[adapterPosition];
+            }
+
+            if (cacheItem == null && !isEmptyPosition) {
                 cacheItem = new CacheItem();
                 mItemCacheArray[adapterPosition] = cacheItem;
             }
 
             //don't draw if outside of the view bounds
             if (Rect.intersects(sTempRect, mViewBounds)) {
-                if (cacheItem.mDirty) {
+                if (cacheItem != null && cacheItem.mDirty) {
                     cacheItem.mDrawable = mAdapter.getDrawable(adapterPosition);
                     cacheItem.mDirty = false;
                 }
 
-                if (!cacheItem.mIsVisible) {
+                if (cacheItem != null && !cacheItem.mIsVisible) {
                     cacheItem.mIsVisible = true;
                     if (mOnItemVisibilityChangeListener != null) {
                         mOnItemVisibilityChangeListener.onItemVisibilityChange(mAdapter, adapterPosition, true);
                     }
                 }
 
-                if (i == mSelectedPosition && mSelectionDrawable != null) {
+                if (i == mSelectedPosition && mSelectionDrawable != null && isSelectablePosition(i)) {
                     mSelectionDrawable.setBounds(sTempRect.left - mSelectionPadding, sTempRect.top - mSelectionPadding,
                             sTempRect.right + mSelectionPadding, sTempRect.bottom + mSelectionPadding);
                     mSelectionTransformer.transform(mSelectionDrawable, itemState);
@@ -996,7 +1018,7 @@ public class WheelView extends View {
                 }
 
                 Drawable drawable;
-                if (cacheItem.mDrawable != null) {
+                if (cacheItem != null && cacheItem.mDrawable != null) {
                     drawable = cacheItem.mDrawable;
                 } else {
                     if (mEmptyItemDrawable != null) {
@@ -1011,7 +1033,7 @@ public class WheelView extends View {
                     drawable.draw(canvas);
                 }
             } else {
-                if (cacheItem.mIsVisible) {
+                if (cacheItem != null && cacheItem.mIsVisible) {
                     cacheItem.mIsVisible = false;
                     if (mOnItemVisibilityChangeListener != null) {
                         mOnItemVisibilityChangeListener.onItemVisibilityChange(mAdapter, adapterPosition, false);
@@ -1045,7 +1067,7 @@ public class WheelView extends View {
 
     /**
      * The ItemState is used to provide extra information when transforming the selection drawable
-     * or item bounds. It is also used to
+     * or item bounds.
      */
     public static class ItemState {
         WheelView mWheelView;

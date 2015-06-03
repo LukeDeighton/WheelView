@@ -1,4 +1,4 @@
-apply plugin: 'android'
+apply plugin: 'com.android.application'
 android {
     compileSdkVersion 20
     buildToolsVersion '20.0'
@@ -10,7 +10,7 @@ android {
     }
     buildTypes {
         release {
-            runProguard false
+            minifyEnabled true
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.txt'
         }
     }
