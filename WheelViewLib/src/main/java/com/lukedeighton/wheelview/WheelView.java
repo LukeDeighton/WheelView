@@ -340,7 +340,14 @@ public class WheelView extends View {
      * A listener for when a wheel item is selected.
      */
     public static interface OnWheelItemSelectListener {
-        void onWheelItemSelected(WheelView parent, int position);
+        /**
+         * @param parent WheelView that calls this listener
+         * @param itemDrawable - The Drawable of the wheel item that is closest to the selection angle
+         *                     (or closest to the selection angle)
+         * @param position of the adapter that is closest to the selection angle
+         */
+        void onWheelItemSelected(WheelView parent, Drawable itemDrawable, int position);
+
         //TODO onWheelItemSettled?
     }
 
@@ -739,15 +746,33 @@ public class WheelView extends View {
         return mIsRepeatable || (position < mAdapterItemCount && position >= 0);
     }
 
+    /**
+     * The raw position of the wheel
+     */
     private void setSelectedPosition(int position) {
         if (mSelectedPosition == position) return;
 
         mSelectedPosition = position;
 
         if (mOnItemSelectListener != null && isSelectablePosition(position)) {
-            mOnItemSelectListener.onWheelItemSelected(this, getSelectedPosition());
+           // Drawable drawable = //TODO how to access the drawable?
+            int adapterPos = getSelectedPosition();
+            mOnItemSelectListener.onWheelItemSelected(this, getWheelItemDrawable(adapterPos), adapterPos);
         }
     }
+
+    /**
+     * @param position of the item in the Adapter
+     * @return The Drawable at the specific position in the Adapter
+     */
+    public Drawable getWheelItemDrawable(int position) {
+        if (mAdapter == null || mAdapterItemCount == 0) return null;
+        CacheItem cachedDrawable = mItemCacheArray[position];
+        if (cachedDrawable != null) return cachedDrawable.mDrawable;
+        return mAdapter.getDrawable(position);
+    }
+
+    //TODO option to refresh Drawable Cache or individual item
 
     public int getSelectedPosition() {
         return rawPositionToAdapterPosition(mSelectedPosition);

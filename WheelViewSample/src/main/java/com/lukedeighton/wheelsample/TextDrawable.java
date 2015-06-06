@@ -47,4 +47,8 @@ public class TextDrawable extends Drawable {
     public int getOpacity() {
         return PixelFormat.TRANSLUCENT;
     }
+
+    public String getText() {
+        return text;
+    }
 }

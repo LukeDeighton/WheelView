@@ -6,6 +6,7 @@ import android.graphics.drawable.LayerDrawable;
 import android.graphics.drawable.ShapeDrawable;
 import android.graphics.drawable.shapes.OvalShape;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.widget.Toast;
@@ -41,9 +42,9 @@ public class MainActivity extends Activity {
         //a listener for receiving a callback for when the item closest to the selection angle changes
         wheelView.setOnWheelItemSelectedListener(new WheelView.OnWheelItemSelectListener() {
             @Override
-            public void onWheelItemSelected(WheelView parent, int position) {
+            public void onWheelItemSelected(WheelView parent, Drawable itemDrawable, int position) {
                 //get the item at this position
-                Map.Entry<String, Integer> selectedEntry = ((MaterialColorAdapter) parent.getAdapter()).getItem(position);
+                Map.Entry < String, Integer > selectedEntry = ((MaterialColorAdapter) parent.getAdapter()).getItem(position);
                 parent.setSelectionColor(getContrastColor(selectedEntry));
             }
         });

@@ -13,7 +13,7 @@
         app:selectionAngle="90.0"
         app:selectionColor="@color/teal_900"
         app:selectionPadding="4dp"
-        app:repeatItems="true"
+        app:repeatItems="false"
         app:wheelRadius="276dp"
         app:wheelItemCount="14"
         app:wheelPadding="13dp"
