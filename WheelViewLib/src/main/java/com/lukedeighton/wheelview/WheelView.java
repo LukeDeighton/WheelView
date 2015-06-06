@@ -755,7 +755,6 @@ public class WheelView extends View {
         mSelectedPosition = position;
 
         if (mOnItemSelectListener != null && isSelectablePosition(position)) {
-           // Drawable drawable = //TODO how to access the drawable?
             int adapterPos = getSelectedPosition();
             mOnItemSelectListener.onWheelItemSelected(this, getWheelItemDrawable(adapterPos), adapterPos);
         }
