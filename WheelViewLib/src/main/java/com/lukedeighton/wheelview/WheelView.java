@@ -781,14 +781,30 @@ public class WheelView extends View {
         return cacheItem.mDrawable = mAdapter.getDrawable(position);
     }
 
-    /*
-    public boolean refreshWheelItemDrawable(int position) {
-        if
+    /**
+     * Invalidate the drawable at the specific position so that the next Draw call
+     * will refresh the Drawable at this given position in the adapter.
+     */
+    public void invalidateWheelItemDrawable(int position) {
+        int adapterPos = rawPositionToAdapterPosition(position);
+        if (isEmptyItemPosition(adapterPos)) return;
+
+        CacheItem cacheItem = mItemCacheArray[adapterPos];
+        if (cacheItem != null) cacheItem.mDirty = true;
+        invalidate();
     }
 
-    public boolean refreshWheelItemDrawables() {
-
-    } */
+    /**
+     * Invalidate all wheel items. Note - If you need to change the number of items
+     * in the adapter then you will need to use {@link #setAdapter}
+     *
+     * @see #invalidateWheelItemDrawable
+     */
+    public void invalidateWheelItemDrawables() {
+        for (int i = 0; i < mAdapterItemCount; i++) {
+            invalidateWheelItemDrawable(i);
+        }
+    }
 
     private CacheItem getCacheItem(int position) {
         if (isEmptyItemPosition(position)) return EMPTY_CACHE_ITEM;
