@@ -89,7 +89,9 @@ public class WheelView extends View {
         }
     }
 
-    private static final float CLICK_MAX_DRAGGED_ANGLE = 1.5f;
+    private static final float CLICK_MAX_DRAGGED_ANGLE = 0.7f;
+
+    private static final CacheItem EMPTY_CACHE_ITEM = new CacheItem(true);
 
     private VelocityTracker mVelocityTracker;
     private Vector mForceVector = new Vector();
@@ -429,7 +431,7 @@ public class WheelView extends View {
     }
 
     /**
-     * Repeat Items
+     * Set Repeatable Items to true will continuously cycle through the set of adapter items
      */
     public void setRepeatableWheelItems(boolean isRepeatable) {
         mIsRepeatable = isRepeatable;
@@ -558,9 +560,10 @@ public class WheelView extends View {
         return mOffsetY;
     }
 
+    /*
     public void setWheelPosition(int position) {
-        //TODO
-    }
+        //TODO possible solution to animate or instantly?
+    }*/
 
     /**
      * Find the largest circle to fit within the item angle.
@@ -681,6 +684,7 @@ public class WheelView extends View {
 
     public void setEmptyItemDrawable(Drawable drawable) {
         mEmptyItemDrawable = drawable;
+        EMPTY_CACHE_ITEM.mDrawable = drawable;
 
         if (mWheelBounds != null) {
             invalidate();
@@ -742,8 +746,12 @@ public class WheelView extends View {
         setSelectedPosition(position);
     }
 
-    private boolean isSelectablePosition(int position) {
-        return mIsRepeatable || (position < mAdapterItemCount && position >= 0);
+    /**
+     * Determines whether the WheelItem is Empty at the given position.
+     * This is only the case with non-repeatable items
+     */
+    private boolean isEmptyItemPosition(int position) {
+        return !mIsRepeatable && (position < 0 || position >= mAdapterItemCount);
     }
 
     /**
@@ -754,7 +762,7 @@ public class WheelView extends View {
 
         mSelectedPosition = position;
 
-        if (mOnItemSelectListener != null && isSelectablePosition(position)) {
+        if (mOnItemSelectListener != null && !isEmptyItemPosition(position)) {
             int adapterPos = getSelectedPosition();
             mOnItemSelectListener.onWheelItemSelected(this, getWheelItemDrawable(adapterPos), adapterPos);
         }
@@ -766,12 +774,32 @@ public class WheelView extends View {
      */
     public Drawable getWheelItemDrawable(int position) {
         if (mAdapter == null || mAdapterItemCount == 0) return null;
-        CacheItem cachedDrawable = mItemCacheArray[position];
-        if (cachedDrawable != null) return cachedDrawable.mDrawable;
-        return mAdapter.getDrawable(position);
+
+        CacheItem cacheItem = getCacheItem(position);
+        if (!cacheItem.mDirty) return cacheItem.mDrawable;
+
+        return cacheItem.mDrawable = mAdapter.getDrawable(position);
     }
 
-    //TODO option to refresh Drawable Cache or individual item
+    /*
+    public boolean refreshWheelItemDrawable(int position) {
+        if
+    }
+
+    public boolean refreshWheelItemDrawables() {
+
+    } */
+
+    private CacheItem getCacheItem(int position) {
+        if (isEmptyItemPosition(position)) return EMPTY_CACHE_ITEM;
+
+        CacheItem cacheItem = mItemCacheArray[position];
+        if (cacheItem == null) {
+            cacheItem = new CacheItem();
+            mItemCacheArray[position] = cacheItem;
+        }
+        return cacheItem;
+    }
 
     public int getSelectedPosition() {
         return rawPositionToAdapterPosition(mSelectedPosition);
@@ -922,13 +950,14 @@ public class WheelView extends View {
     protected void onDraw(Canvas canvas) {
         updateWheelStateIfReq();
 
-        drawWheel(canvas);
+        if (mWheelDrawable != null) {
+            drawWheel(canvas);
+        }
 
-        if (mAdapter == null || mAdapterItemCount <= 0) return;
-
-        drawWheelItems(canvas);
+        if (mAdapter != null && mAdapterItemCount > 0) {
+           drawWheelItems(canvas);
+        }
     }
-
 
     /**
      * Estimates the wheel's new angle and angular velocity
@@ -953,24 +982,22 @@ public class WheelView extends View {
     }
 
     private void updateWheelStateIfReq() {
-        if (mRequiresUpdate) {
-            long currentTime = SystemClock.uptimeMillis();
-            long timeDiff = currentTime - mLastUpdateTime;
-            mLastUpdateTime = currentTime;
-            update(timeDiff);
-        }
+        if (!mRequiresUpdate) return;
+
+        long currentTime = SystemClock.uptimeMillis();
+        long timeDiff = currentTime - mLastUpdateTime;
+        mLastUpdateTime = currentTime;
+        update(timeDiff);
     }
 
     private void drawWheel(Canvas canvas) {
-        if (mWheelDrawable != null) {
-            if (mIsWheelDrawableRotatable) {
-                canvas.save();
-                canvas.rotate(mAngle, mWheelBounds.mCenterX, mWheelBounds.mCenterY);
-                mWheelDrawable.draw(canvas);
-                canvas.restore();
-            } else {
-                mWheelDrawable.draw(canvas);
-            }
+        if (mIsWheelDrawableRotatable) {
+            canvas.save();
+            canvas.rotate(mAngle, mWheelBounds.mCenterX, mWheelBounds.mCenterY);
+            mWheelDrawable.draw(canvas);
+            canvas.restore();
+        } else {
+            mWheelDrawable.draw(canvas);
         }
     }
 
@@ -1007,51 +1034,31 @@ public class WheelView extends View {
             updateItemState(itemState, adapterPosition, x1, y1, radius);
             mItemTransformer.transform(itemState, sTempRect);
 
-            boolean isEmptyPosition = adapterPosition < 0 || adapterPosition >= mItemCacheArray.length;
-            CacheItem cacheItem;
-            if (isEmptyPosition) {
-                cacheItem = null;
-            } else {
-                cacheItem = mItemCacheArray[adapterPosition];
-            }
-
-            if (cacheItem == null && !isEmptyPosition) {
-                cacheItem = new CacheItem();
-                mItemCacheArray[adapterPosition] = cacheItem;
-            }
+            //Empty positions can only occur from having "non repeatable" items
+            CacheItem cacheItem = getCacheItem(adapterPosition);
 
             //don't draw if outside of the view bounds
             if (Rect.intersects(sTempRect, mViewBounds)) {
-                if (cacheItem != null && cacheItem.mDirty) {
+                if (cacheItem.mDirty && !cacheItem.mIsEmpty) {
                     cacheItem.mDrawable = mAdapter.getDrawable(adapterPosition);
                     cacheItem.mDirty = false;
                 }
 
-                if (cacheItem != null && !cacheItem.mIsVisible) {
+                if (!cacheItem.mIsVisible) {
                     cacheItem.mIsVisible = true;
                     if (mOnItemVisibilityChangeListener != null) {
                         mOnItemVisibilityChangeListener.onItemVisibilityChange(mAdapter, adapterPosition, true);
                     }
                 }
 
-                if (i == mSelectedPosition && mSelectionDrawable != null && isSelectablePosition(i)) {
+                if (i == mSelectedPosition && mSelectionDrawable != null && !isEmptyItemPosition(i)) {
                     mSelectionDrawable.setBounds(sTempRect.left - mSelectionPadding, sTempRect.top - mSelectionPadding,
                             sTempRect.right + mSelectionPadding, sTempRect.bottom + mSelectionPadding);
                     mSelectionTransformer.transform(mSelectionDrawable, itemState);
                     mSelectionDrawable.draw(canvas);
                 }
 
-                Drawable drawable;
-                if (cacheItem != null && cacheItem.mDrawable != null) {
-                    drawable = cacheItem.mDrawable;
-                } else {
-                    if (mEmptyItemDrawable != null) {
-                        drawable = mEmptyItemDrawable;
-                    } else {
-                        drawable = null;
-                    }
-                }
-
+                Drawable drawable = cacheItem.mDrawable;
                 if (drawable != null) {
                     drawable.setBounds(sTempRect);
                     drawable.draw(canvas);
@@ -1124,10 +1131,16 @@ public class WheelView extends View {
     static class CacheItem {
         boolean mDirty;
         boolean mIsVisible;
+        boolean mIsEmpty;
         Drawable mDrawable;
 
         CacheItem() {
             mDirty = true;
+        }
+
+        CacheItem(boolean isEmpty) {
+            this();
+            mIsEmpty = isEmpty;
         }
     }
 
