@@ -47,7 +47,6 @@ import java.util.List;
 //TODO sticky selection - always settle on a state that completely selects an item
 //TODO circular clip option?
 //TODO Saving State during screen rotate etc. SavedState extends BaseSavedState
-//TODO handle measurement of view!
 //TODO can items be rendered as views or use recyclerView - use viewgroup?
 //TODO onWheelItemVisibilityChange needs to factor in when items are cycled within view bounds and should that have another callback?
 //TODO option to get wheel state (either flinging or dragging)
@@ -134,8 +133,7 @@ public class WheelView extends View {
     private int mWheelPadding;
     private int mWheelToItemDistance;
     private int mItemRadius;
-    private int mRadius;
-    private int mRadiusSquared;
+    private int mWheelRadius;
     private int mOffsetX;
     private int mOffsetY;
     private int mItemCount;
@@ -242,8 +240,8 @@ public class WheelView extends View {
 
         mItemRadius = a.getDimensionPixelSize(R.styleable.WheelView_wheelItemRadius, 0);
 
-        if (mItemCount == 0 && mWheelToItemDistance > 0) {
-            mItemAngle = calculateAngle(mRadius, mWheelToItemDistance) + mItemAnglePadding;
+        if (mItemCount == 0 && mWheelToItemDistance > 0 && mWheelRadius > 0) {
+            mItemAngle = calculateAngle(mWheelRadius, mWheelToItemDistance) + mItemAnglePadding;
             setWheelItemAngle(mItemAngle);
         }
 
@@ -519,13 +517,13 @@ public class WheelView extends View {
     }
 
     public void setWheelRadius(int radius) {
-        mRadius = radius;
+        if (radius < -1) throw new IllegalArgumentException("Invalid Wheel Radius: " + radius);
 
-        if (radius >= 0) mRadiusSquared = radius * radius;
+        mWheelRadius = radius;
     }
 
     public float getWheelRadius() {
-        return mRadius;
+        return mWheelRadius;
     }
 
     public void setWheelItemCount(int count) {
@@ -589,6 +587,68 @@ public class WheelView extends View {
         super.onLayout(changed, left, top, right, bottom);
     }
 
+    @Override
+    protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+        final int widthMode = MeasureSpec.getMode(widthMeasureSpec);
+        final int heightMode = MeasureSpec.getMode(heightMeasureSpec);
+        final int widthSize = MeasureSpec.getSize(widthMeasureSpec);
+        final int heightSize = MeasureSpec.getSize(heightMeasureSpec);
+
+        //if we are not to measure exactly then check what size we would like to be
+        int desiredWidth;
+        if (widthMode != MeasureSpec.EXACTLY) {
+            if (mWheelRadius >= 0) {
+                desiredWidth = mWheelRadius * 2 + getPaddingLeft() + getPaddingRight();
+            } else {
+                desiredWidth = widthSize;
+            }
+        } else {
+            desiredWidth = -1;
+        }
+
+        int desiredHeight;
+        if (heightMode != MeasureSpec.EXACTLY) {
+            if (mWheelRadius >= 0) {
+                desiredHeight = mWheelRadius * 2 + getPaddingTop() + getPaddingBottom();
+            } else {
+                desiredHeight = heightSize;
+            }
+        } else {
+            desiredHeight = -1;
+        }
+
+        desiredWidth = Math.max(desiredWidth, getSuggestedMinimumWidth());
+        desiredHeight = Math.max(desiredHeight, getSuggestedMinimumHeight());
+
+        int width = resolveSizeAndState(desiredWidth, widthMeasureSpec);
+        int height = resolveSizeAndState(desiredHeight, heightMeasureSpec);
+
+        setMeasuredDimension(width, height);
+    }
+
+    //Taken and modified from Android Source for API < 11
+    public static int resolveSizeAndState(int size, int measureSpec) {
+        int result = size;
+        int specMode = MeasureSpec.getMode(measureSpec);
+        int specSize =  MeasureSpec.getSize(measureSpec);
+        switch (specMode) {
+            case MeasureSpec.UNSPECIFIED:
+                result = size;
+                break;
+            case MeasureSpec.AT_MOST:
+                if (specSize < size) {
+                    result = specSize;
+                } else {
+                    result = size;
+                }
+                break;
+            case MeasureSpec.EXACTLY:
+                result = specSize;
+                break;
+        }
+        return result;
+    }
+
     private void layoutWheel(int left, int top, int width, int height) {
         if (width == 0 || height == 0) return;
 
@@ -612,10 +672,21 @@ public class WheelView extends View {
 
         final int centerX = (int) (mOffsetX + width * relativeHorizontal);
         final int centerY = (int) (mOffsetY + height * relativeVertical);
-        mWheelBounds = new Circle(centerX, centerY, mRadius);
+
+        int wheelRadius = measureWheelRadius(mWheelRadius, width, height);
+        mWheelBounds = new Circle(centerX, centerY, wheelRadius);
 
         if (mWheelDrawable != null) {
             mWheelDrawable.setBounds(mWheelBounds.getBoundingRect());
+        }
+    }
+
+    private int measureWheelRadius(int radius, int width, int height) {
+        if (radius == ViewGroup.LayoutParams.MATCH_PARENT) {
+            return Math.min(width - getPaddingLeft() - getPaddingRight(),
+                            height - getPaddingTop() - getPaddingBottom()) / 2;
+        } else {
+            return radius;
         }
     }
 
@@ -806,15 +877,10 @@ public class WheelView extends View {
         }
     }
 
-    private CacheItem getCacheItem(int position) {
-        if (isEmptyItemPosition(position)) return EMPTY_CACHE_ITEM;
-
-        CacheItem cacheItem = mItemCacheArray[position];
-        if (cacheItem == null) {
-            cacheItem = new CacheItem();
-            mItemCacheArray[position] = cacheItem;
-        }
-        return cacheItem;
+    private Drawable createOvalDrawable(int color) {
+        ShapeDrawable shapeDrawable = new ShapeDrawable(new OvalShape());
+        shapeDrawable.getPaint().setColor(color);
+        return shapeDrawable;
     }
 
     public int getSelectedPosition() {
@@ -876,8 +942,9 @@ public class WheelView extends View {
                 mLastWheelTouchY = y;
                 setRadiusVector(x, y);
 
+                float wheelRadiusSquared = mWheelBounds.getRadius() * mWheelBounds.getRadius();
                 float touchRadiusSquared = mRadiusVector.x * mRadiusVector.x + mRadiusVector.y * mRadiusVector.y;
-                float touchFactor = TOUCH_FACTORS[(int) (touchRadiusSquared / mRadiusSquared * TOUCH_FACTORS.length)];
+                float touchFactor = TOUCH_FACTORS[(int) (touchRadiusSquared / wheelRadiusSquared * TOUCH_FACTORS.length)];
                 float touchAngle = mWheelBounds.angleToDegrees(x, y);
                 float draggedAngle = -1f * Circle.shortestAngle(touchAngle, mLastTouchAngle) * touchFactor;
                 addAngle(draggedAngle);
@@ -890,14 +957,6 @@ public class WheelView extends View {
                 break;
         }
         return true;
-    }
-
-    private ItemState getClickedItem(float touchX, float touchY) {
-        for (ItemState state : mItemStates) {
-            Circle itemBounds = state.mBounds;
-            if (itemBounds.contains(touchX, touchY)) return state;
-        }
-        return null;
     }
 
     private void startWheelDrag(MotionEvent event, float x, float y) {
@@ -926,7 +985,8 @@ public class WheelView extends View {
         float torque = mForceVector.crossProduct(mRadiusVector);
 
         //dw/dt = torque / I = torque / mr^2
-        float angularAccel = torque / mRadiusSquared;
+        float wheelRadiusSquared = mWheelBounds.getRadius() * mWheelBounds.getRadius();
+        float angularAccel = torque / wheelRadiusSquared;
 
         //estimate an angular velocity based on the strength of the angular acceleration
         float angularVel = angularAccel * ANGULAR_VEL_COEFFICIENT;
@@ -962,19 +1022,6 @@ public class WheelView extends View {
         return Circle.clamp(adapterPosition + circularOffset, mItemCount);
     }
 
-    @Override
-    protected void onDraw(Canvas canvas) {
-        updateWheelStateIfReq();
-
-        if (mWheelDrawable != null) {
-            drawWheel(canvas);
-        }
-
-        if (mAdapter != null && mAdapterItemCount > 0) {
-           drawWheelItems(canvas);
-        }
-    }
-
     /**
      * Estimates the wheel's new angle and angular velocity
      */
@@ -1004,6 +1051,19 @@ public class WheelView extends View {
         long timeDiff = currentTime - mLastUpdateTime;
         mLastUpdateTime = currentTime;
         update(timeDiff);
+    }
+
+    @Override
+    protected void onDraw(Canvas canvas) {
+        updateWheelStateIfReq();
+
+        if (mWheelDrawable != null) {
+            drawWheel(canvas);
+        }
+
+        if (mAdapter != null && mAdapterItemCount > 0) {
+           drawWheelItems(canvas);
+        }
     }
 
     private void drawWheel(Canvas canvas) {
@@ -1090,28 +1150,6 @@ public class WheelView extends View {
         }
     }
 
-    private void updateItemState(ItemState itemState, int adapterPosition,
-                                 float x, float y, float radius) {
-        float itemAngle = mWheelBounds.angleToDegrees(x, y);
-        float angleFromSelection = Circle.shortestAngle(itemAngle, mSelectionAngle);
-        float relativePos = angleFromSelection / mItemAngle * 2f;
-
-        itemState.mAngleFromSelection = angleFromSelection;
-        itemState.mRelativePos = relativePos;
-        itemState.mBounds.mCenterX = x;
-        itemState.mBounds.mCenterY = y;
-        itemState.mAdapterPosition = adapterPosition;
-
-        //TODO The radius is always known - doesn't really need this?
-        itemState.mBounds.mRadius = radius;
-    }
-
-    private Drawable createOvalDrawable(int color) {
-        ShapeDrawable shapeDrawable = new ShapeDrawable(new OvalShape());
-        shapeDrawable.getPaint().setColor(color);
-        return shapeDrawable;
-    }
-
     /**
      * The ItemState is used to provide extra information when transforming the selection drawable
      * or item bounds.
@@ -1144,6 +1182,30 @@ public class WheelView extends View {
         }
     }
 
+    private void updateItemState(ItemState itemState, int adapterPosition,
+                                 float x, float y, float radius) {
+        float itemAngle = mWheelBounds.angleToDegrees(x, y);
+        float angleFromSelection = Circle.shortestAngle(itemAngle, mSelectionAngle);
+        float relativePos = angleFromSelection / mItemAngle * 2f;
+
+        itemState.mAngleFromSelection = angleFromSelection;
+        itemState.mRelativePos = relativePos;
+        itemState.mBounds.mCenterX = x;
+        itemState.mBounds.mCenterY = y;
+        itemState.mAdapterPosition = adapterPosition;
+
+        //TODO The radius is always known - doesn't really need this?
+        itemState.mBounds.mRadius = radius;
+    }
+
+    private ItemState getClickedItem(float touchX, float touchY) {
+        for (ItemState state : mItemStates) {
+            Circle itemBounds = state.mBounds;
+            if (itemBounds.contains(touchX, touchY)) return state;
+        }
+        return null;
+    }
+
     static class CacheItem {
         boolean mDirty;
         boolean mIsVisible;
@@ -1158,6 +1220,17 @@ public class WheelView extends View {
             this();
             mIsEmpty = isEmpty;
         }
+    }
+
+    private CacheItem getCacheItem(int position) {
+        if (isEmptyItemPosition(position)) return EMPTY_CACHE_ITEM;
+
+        CacheItem cacheItem = mItemCacheArray[position];
+        if (cacheItem == null) {
+            cacheItem = new CacheItem();
+            mItemCacheArray[position] = cacheItem;
+        }
+        return cacheItem;
     }
 
     /**
