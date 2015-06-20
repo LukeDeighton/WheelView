@@ -5,12 +5,20 @@ WheelView is an Android library that allows drawables to be placed on a rotatabl
 
 The WheelView can be used as a way to select one item from a list. The `SelectionAngle` determines what position on the wheel is selected. You can also receive a callback for when an item is clicked, and whether it is selected. Have a look at the sample for a working example!
 
-The library is still in its infancy so if there are any bugs or missing features please let me know!
-
 ![1]
 ![2]
 
 Note - Frame rate is much better than these poorly converted gifs!
+
+Setup
+-----
+
+Include this in build.gradle project dependencies:
+```groovy
+dependencies {
+    compile 'com.github.lukedeighton:wheelview:0.3.1'
+}
+```
 
 Usage
 -----
@@ -54,6 +62,8 @@ wheelView.setAdapter(new WheelAdapter() {
 });
 ```
 
+Please note that the `WheelAdapter` doesn't behave exactly like a `ListAdapter` since Drawables don't need to be recycled in comparison to Views where inflation is expensive. If you need to refresh the Adapter / Items then call `setAdapter` again.
+
 Listeners
 ---------
 
@@ -61,8 +71,8 @@ Listeners
 ```java
 wheelView.setOnWheelItemSelectedListener(new WheelView.OnWheelItemSelectListener() {
     @Override
-    public void onWheelItemSelected(WheelView parent, int position) {
-        //the adapter position that is closest to the selection angle
+    public void onWheelItemSelected(WheelView parent,  Drawable itemDrawable, int position) {
+        //the adapter position that is closest to the selection angle and it's drawable
     }
 });
 ```
@@ -113,6 +123,19 @@ The WheelView is highly customisable with many attributes that can be set via xm
   * wheelPadding
   * wheelItemTransformer
   * selectionTransformer
+
+WheelItemTransformer
+--------------------
+
+Determines the draw bounds of the `WheelItem` in relation to the selection angle.
+
+  * `SimpleItemTransformer` - All items are the same size
+  * `ScalingItemTransformer` - Items grow in size near to the selection angle
+
+Future Goals
+------------
+
+Convert this project to use `LayoutManager` to replace Drawables with Views
 
 License
 -------
