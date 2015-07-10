@@ -6,6 +6,4 @@ public interface WheelAdapter {
     Drawable getDrawable(int position);
 
     int getCount();
-
-    Object getItem(int position);
 }

@@ -25,6 +25,7 @@ import android.graphics.drawable.Drawable;
 import android.graphics.drawable.ShapeDrawable;
 import android.graphics.drawable.shapes.OvalShape;
 import android.os.SystemClock;
+import android.support.annotation.DrawableRes;
 import android.support.annotation.NonNull;
 import android.util.AttributeSet;
 import android.view.InflateException;
@@ -99,7 +100,7 @@ public class WheelView extends View {
     private float mAngularVelocity;
     private long mLastUpdateTime;
     private boolean mRequiresUpdate;
-    private int mSelectedPosition;
+    private int mRawSelectedPosition;
     private float mLastWheelTouchX;
     private float mLastWheelTouchY;
 
@@ -727,15 +728,24 @@ public class WheelView extends View {
     }
 
     /**
-     * If the drawable has infinite lines of symmetry then you should set the wheel drawable to
+     * You should also disable wheel drawable rotation since a circular color will
+     * look the same from any angle.
+     *
+     * @see #setWheelDrawableRotatable(boolean)
+     * @see #setWheelDrawable(int)
+     */
+    public void setWheelDrawable(@DrawableRes int resId) {
+        setWheelDrawable(getResources().getDrawable(resId));
+    }
+
+    /**
+     * Sets the wheel's drawable.
+     *
+     * Note if the drawable has infinite lines of symmetry then you should set the wheel drawable to
      * not rotate, see {@link #setWheelDrawableRotatable(boolean)}. In other words, if the drawable
      * doesn't look any different whilst it is rotating, you should improve the performance by
      * disabling the drawable from rotating.
      */
-    public void setWheelDrawable(int resId) {
-        setWheelDrawable(getResources().getDrawable(resId));
-    }
-
     public void setWheelDrawable(Drawable drawable) {
         mWheelDrawable = drawable;
 
@@ -745,14 +755,29 @@ public class WheelView extends View {
         }
     }
 
+    /**
+     * Sets the empty item drawable that is drawn when outside of the adapter range.
+     *
+     * @see #isEmptyItemPosition(int)
+     */
     public void setEmptyItemColor(int color) {
         setEmptyItemDrawable(createOvalDrawable(color));
     }
 
-    public void setEmptyItemDrawable(int resId) {
+    /**
+     * Sets the empty item drawable that is drawn when outside of the adapter range.
+     *
+     * @see #isEmptyItemPosition(int)
+     */
+    public void setEmptyItemDrawable(@DrawableRes int resId) {
         setEmptyItemDrawable(getResources().getDrawable(resId));
     }
 
+    /**
+     * Sets the empty item drawable that is drawn when outside of the adapter range.
+     *
+     * @see #isEmptyItemPosition(int)
+     */
     public void setEmptyItemDrawable(Drawable drawable) {
         mEmptyItemDrawable = drawable;
         EMPTY_CACHE_ITEM.mDrawable = drawable;
@@ -762,47 +787,117 @@ public class WheelView extends View {
         }
     }
 
+    /**
+     * Sets the selection drawable to be a circular color
+     *
+     * @see #setSelectionDrawable(int)
+     * @see #setSelectionDrawable(Drawable)
+     */
     public void setSelectionColor(int color) {
         setSelectionDrawable(createOvalDrawable(color));
     }
 
-    public void setSelectionDrawable(int resId) {
+    /**
+     * Sets the selection drawable from a Drawable Resource.
+     *
+     * @see #setSelectionColor(int)
+     * @see #setSelectionDrawable(Drawable)
+     */
+    public void setSelectionDrawable(@DrawableRes int resId) {
         setSelectionDrawable(getResources().getDrawable(resId));
     }
 
+    /**
+     * Set the selection drawable that is drawn behind the selected item.
+     *
+     * @see #setSelectionDrawable(int)
+     * @see #setSelectionColor(int)
+     */
     public void setSelectionDrawable(Drawable drawable) {
         mSelectionDrawable = drawable;
         invalidate();
     }
 
+    /**
+     * @return The Drawable that is drawn behind the selected item.
+     */
     public Drawable getSelectionDrawable() {
         return mSelectionDrawable;
     }
 
+    /**
+     * @return the empty item drawable used when rendering positions outside of the adapter range.
+     *
+     * @see #isEmptyItemPosition(int)
+     */
     public Drawable getEmptyItemDrawable() {
         return mEmptyItemDrawable;
     }
 
+    /**
+     * @return the wheel's drawable
+     */
     public Drawable getWheelDrawable() {
         return mWheelDrawable;
     }
 
-    public float getAngleForPosition(int position) {
-        return -1f * position * mItemAngle;
+    /**
+     * @return the absolute angle for the item at the given position
+     */
+    public float getAngleForPosition(int rawPosition) {
+        return rawPosition * mItemAngle;
     }
 
-    public void setPosition(int position) {
-        setAngle(getAngleForPosition(position));
+    /**
+     * <p>
+     * Changes the wheel angle so that the item at the provided position becomes selected.
+     * </p>
+     * <p>
+     * Note that this does not change the selection angle, instead it will rotate the wheel
+     * to the angle where the provided position becomes selected.
+     * </p>
+     *
+     * @param rawPosition the raw position (can take negative numbers)
+     *
+     * @see #setMidSelected()
+     */
+    public void setSelected(int rawPosition) {
+        //must rotate the wheel in the opposite direction so that the given position becomes selected
+        setAngle(-1f * getAngleForPosition(rawPosition));
     }
 
-    public int getPosition() {
-        return mSelectedPosition;
+    /**
+     * Changes the wheel angle so that the item in the middle of the adapter becomes selected.
+     *
+     * @see #setSelected(int)
+     */
+    public void setMidSelected() {
+        if (mAdapter == null || mAdapterItemCount == 0)
+            throw new IllegalStateException("Cannot select position with no adapter items");
+
+        setSelected(mAdapterItemCount / 2);
     }
 
+    /**
+     * The raw selected position (can be negative and isn't cyclic)
+     *
+     * @see #getAngle()
+     * @see #getSelectedPosition()
+     */
+    public int getRawSelectedPosition() {
+        return mRawSelectedPosition;
+    }
+
+    /**
+     * Set the angle of the wheel instantaneously.
+     * Note this does not animate to the provided angle.
+     *
+     * @param angle given in degrees and can be any value (not only between 0 and 360)
+     */
     public void setAngle(float angle) {
         mAngle = angle;
 
-        updateSelectionPosition();
+        updateSelectedPosition();
 
         if (mOnAngleChangeListener != null) {
             mOnAngleChangeListener.onWheelAngleChange(mAngle);
@@ -811,27 +906,24 @@ public class WheelView extends View {
         invalidate();
     }
 
-    private void updateSelectionPosition() {
+    private void updateSelectedPosition() {
         int position = (int) ((-mAngle + -0.5 * Math.signum(mAngle) * mItemAngle) / mItemAngle);
-
         setSelectedPosition(position);
     }
 
     /**
-     * Determines whether the WheelItem is Empty at the given position.
-     * This is only the case with non-repeatable items
+     * @return {@code true} if this adapter position is empty.
+     *
+     * This is only possible with non-repeatable items.
      */
-    private boolean isEmptyItemPosition(int position) {
+    public boolean isEmptyItemPosition(int position) {
         return !mIsRepeatable && (position < 0 || position >= mAdapterItemCount);
     }
 
-    /**
-     * The raw position of the wheel
-     */
     private void setSelectedPosition(int position) {
-        if (mSelectedPosition == position) return;
+        if (mRawSelectedPosition == position) return;
 
-        mSelectedPosition = position;
+        mRawSelectedPosition = position;
 
         if (mOnItemSelectListener != null && !isEmptyItemPosition(position)) {
             int adapterPos = getSelectedPosition();
@@ -883,10 +975,22 @@ public class WheelView extends View {
         return shapeDrawable;
     }
 
+    /**
+     * @return the adapter position that is closest to the selection
+     *
+     * @see #getRawSelectedPosition()
+     * @see #getAngle()
+     */
     public int getSelectedPosition() {
-        return rawPositionToAdapterPosition(mSelectedPosition);
+        return rawPositionToAdapterPosition(mRawSelectedPosition);
     }
 
+    /**
+     * @return the wheel angle
+     *
+     * @see #getRawSelectedPosition()
+     * @see #getSelectedPosition()
+     */
     public float getAngle() {
         return mAngle;
     }
@@ -1085,7 +1189,7 @@ public class WheelView extends View {
         float centerY = mWheelBounds.mCenterY;
 
         int wheelItemOffset = mItemCount / 2;
-        int offset = mSelectedPosition - wheelItemOffset;
+        int offset = mRawSelectedPosition - wheelItemOffset;
         int length = mItemCount + offset;
         for (int i = offset; i < length; i++) {
             int adapterPosition = rawPositionToAdapterPosition(i);
@@ -1127,7 +1231,7 @@ public class WheelView extends View {
                     }
                 }
 
-                if (i == mSelectedPosition && mSelectionDrawable != null && !isEmptyItemPosition(i)) {
+                if (i == mRawSelectedPosition && mSelectionDrawable != null && !isEmptyItemPosition(i)) {
                     mSelectionDrawable.setBounds(sTempRect.left - mSelectionPadding, sTempRect.top - mSelectionPadding,
                             sTempRect.right + mSelectionPadding, sTempRect.bottom + mSelectionPadding);
                     mSelectionTransformer.transform(mSelectionDrawable, itemState);

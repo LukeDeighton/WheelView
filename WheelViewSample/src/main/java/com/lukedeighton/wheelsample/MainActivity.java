@@ -6,7 +6,6 @@ import android.graphics.drawable.LayerDrawable;
 import android.graphics.drawable.ShapeDrawable;
 import android.graphics.drawable.shapes.OvalShape;
 import android.os.Bundle;
-import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.widget.Toast;
@@ -27,11 +26,11 @@ public class MainActivity extends Activity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        WheelView wheelView = (WheelView) findViewById(R.id.wheelview);
+        final WheelView wheelView = (WheelView) findViewById(R.id.wheelview);
 
         //create data for the adapter
         List<Map.Entry<String, Integer>> entries = new ArrayList<Map.Entry<String, Integer>>(ITEM_COUNT);
-        for(int i = 0; i < ITEM_COUNT; i++) {
+        for (int i = 0; i < ITEM_COUNT; i++) {
             Map.Entry<String, Integer> entry = MaterialColor.random(this, "\\D*_500$");
             entries.add(entry);
         }
@@ -44,7 +43,7 @@ public class MainActivity extends Activity {
             @Override
             public void onWheelItemSelected(WheelView parent, Drawable itemDrawable, int position) {
                 //get the item at this position
-                Map.Entry < String, Integer > selectedEntry = ((MaterialColorAdapter) parent.getAdapter()).getItem(position);
+                Map.Entry<String, Integer> selectedEntry = ((MaterialColorAdapter) parent.getAdapter()).getItem(position);
                 parent.setSelectionColor(getContrastColor(selectedEntry));
             }
         });
@@ -59,6 +58,15 @@ public class MainActivity extends Activity {
 
         //initialise the selection drawable with the first contrast color
         wheelView.setSelectionColor(getContrastColor(entries.get(0)));
+
+        /*
+        new Handler().postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                //wheelView.setSelectionAngle(-wheelView.getAngleForPosition(5));
+                wheelView.setMidSelected();
+            }
+        }, 3000); */
     }
 
     //get the materials darker contrast
