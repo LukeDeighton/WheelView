@@ -325,7 +325,7 @@ public class WheelView extends View {
         mSelectionTransformer = new FadingSelectionTransformer();
     }
 
-    public static interface OnWheelItemClickListener {
+    public interface OnWheelItemClickListener {
         void onWheelItemClick(WheelView parent, int position, boolean isSelected);
     }
 
@@ -340,7 +340,7 @@ public class WheelView extends View {
     /**
      * A listener for when a wheel item is selected.
      */
-    public static interface OnWheelItemSelectListener {
+    public interface OnWheelItemSelectListener {
         /**
          * @param parent WheelView that calls this listener
          * @param itemDrawable - The Drawable of the wheel item that is closest to the selection angle
@@ -360,7 +360,7 @@ public class WheelView extends View {
         return mOnItemSelectListener;
     }
 
-    public static interface OnWheelItemVisibilityChangeListener {
+    public interface OnWheelItemVisibilityChangeListener {
         void onItemVisibilityChange(WheelAdapter adapter, int position, boolean isVisible);
     }
 
@@ -375,7 +375,7 @@ public class WheelView extends View {
     /**
      * A listener for when the wheel's angle has changed.
      */
-    public static interface OnWheelAngleChangeListener {
+    public interface OnWheelAngleChangeListener {
         /**
          * Receive a callback when the wheel's angle has changed.
          */
@@ -411,13 +411,9 @@ public class WheelView extends View {
         mSelectionTransformer = transformer;
     }
 
-    public WheelSelectionTransformer getWheelSelectionTransformer() {
-        return mSelectionTransformer;
-    }
-
     /**
      * <p> When true the wheel drawable is rotated as well as the wheel items.
-     * For performance it is better to not rotate the wheel drawable.
+     * For performance it is better to not rotate the wheel drawable if possible.
      * <p> The default value is true
      */
     public void setWheelDrawableRotatable(boolean isWheelDrawableRotatable) {
@@ -425,18 +421,24 @@ public class WheelView extends View {
         invalidate();
     }
 
+    /**
+     * @return {@code true} if the wheel drawable rotates.
+     */
     public boolean isWheelDrawableRotatable() {
         return mIsWheelDrawableRotatable;
     }
 
     /**
-     * Set Repeatable Items to true will continuously cycle through the set of adapter items
+     * Set Repeatable Adapter to true will continuously cycle through the set of adapter items.
      */
-    public void setRepeatableWheelItems(boolean isRepeatable) {
+    public void setRepeatableAdapter(boolean isRepeatable) {
         mIsRepeatable = isRepeatable;
     }
 
-    public boolean isRepeatable() {
+    /**
+     * @return {@code true} if the adapter items continuously cycle around the wheel.
+     */
+    public boolean isRepeatableAdapter() {
         return mIsRepeatable;
     }
 
@@ -517,16 +519,25 @@ public class WheelView extends View {
         return mItemRadius;
     }
 
+    /**
+     * Sets the wheel radius in pixels.
+     */
     public void setWheelRadius(int radius) {
         if (radius < -1) throw new IllegalArgumentException("Invalid Wheel Radius: " + radius);
 
         mWheelRadius = radius;
     }
 
+    /**
+     * Gets the radius of the wheel in pixels
+     */
     public float getWheelRadius() {
         return mWheelRadius;
     }
 
+    /**
+     * Sets the number of items to be displayed on the wheel.
+     */
     public void setWheelItemCount(int count) {
         mItemCount = count;
         mItemAngle = calculateItemAngle(count);
@@ -537,7 +548,10 @@ public class WheelView extends View {
         }
     }
 
-    public float getItemCount() {
+    /**
+     * @return the count of wheel items that are displayed on the wheel.
+     */
+    public float getWheelItemCount() {
         return mItemCount;
     }
 
@@ -728,8 +742,7 @@ public class WheelView extends View {
     }
 
     /**
-     * You should also disable wheel drawable rotation since a circular color will
-     * look the same from any angle.
+     * Sets the wheel's drawable that can also rotate with the items.
      *
      * @see #setWheelDrawableRotatable(boolean)
      * @see #setWheelDrawable(int)
@@ -739,12 +752,17 @@ public class WheelView extends View {
     }
 
     /**
-     * Sets the wheel's drawable.
-     *
+     * <p>
+     * Sets the wheel's drawable that can also rotate with the items.
+     * </p>
+     * <p>
      * Note if the drawable has infinite lines of symmetry then you should set the wheel drawable to
      * not rotate, see {@link #setWheelDrawableRotatable(boolean)}. In other words, if the drawable
      * doesn't look any different whilst it is rotating, you should improve the performance by
      * disabling the drawable from rotating.
+     * </p>
+     *
+     * @see #setWheelDrawableRotatable(boolean)
      */
     public void setWheelDrawable(Drawable drawable) {
         mWheelDrawable = drawable;
@@ -906,6 +924,9 @@ public class WheelView extends View {
         invalidate();
     }
 
+    /**
+     * Checks to see if the selectedPosition has changed.
+     */
     private void updateSelectedPosition() {
         int position = (int) ((-mAngle + -0.5 * Math.signum(mAngle) * mItemAngle) / mItemAngle);
         setSelectedPosition(position);
@@ -986,7 +1007,7 @@ public class WheelView extends View {
     }
 
     /**
-     * @return the wheel angle
+     * @return the wheel angle in degrees.
      *
      * @see #getRawSelectedPosition()
      * @see #getSelectedPosition()
@@ -1112,14 +1133,32 @@ public class WheelView extends View {
         mRadiusVector.set(rVectorX, rVectorY);
     }
 
+    /**
+     * Converts the raw position to a position within the adapter bounds.
+     *
+     * @see #rawPositionToWheelPosition(int, int)
+     * @see #rawPositionToWheelPosition(int)
+     */
     public int rawPositionToAdapterPosition(int position) {
         return mIsRepeatable ? Circle.clamp(position, mAdapterItemCount) : position;
     }
 
+    /**
+     * Converts the raw position to a position within the wheel item bounds.
+     *
+     * @see #rawPositionToAdapterPosition(int)
+     * @see #rawPositionToWheelPosition(int, int)
+     */
     public int rawPositionToWheelPosition(int position) {
         return rawPositionToWheelPosition(position, rawPositionToAdapterPosition(position));
     }
 
+    /**
+     * Converts the raw position to a position within the wheel item bounds.
+     *
+     * @see #rawPositionToAdapterPosition(int)
+     * @see #rawPositionToWheelPosition(int)
+     */
     public int rawPositionToWheelPosition(int position, int adapterPosition) {
         int circularOffset = mIsRepeatable ? ((int) Math.floor((position /
                 (float) mAdapterItemCount)) * (mAdapterItemCount - mItemCount)) : 0;
