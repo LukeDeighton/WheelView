@@ -20,6 +20,8 @@ public class MaterialColor {
         Field[] fields = R.color.class.getFields();
         HashMap<String, Integer> materialHashMap = new HashMap<String, Integer>(fields.length);
         for(Field field : fields) {
+            if (field.getType() != int.class) continue;
+
             String fieldName = field.getName(); //prone to errors but okay for a sample!
             if (fieldName.startsWith("abc") || fieldName.startsWith("material")) continue;
 
