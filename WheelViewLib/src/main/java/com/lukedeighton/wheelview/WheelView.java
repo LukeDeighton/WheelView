@@ -1053,8 +1053,10 @@ public class WheelView extends View {
                     flingWheel();
                 }
 
-                mVelocityTracker.recycle();
-                mVelocityTracker = null;
+                if (mVelocityTracker != null) {
+                    mVelocityTracker.recycle();
+                    mVelocityTracker = null;
+                }
                 break;
             case MotionEvent.ACTION_MOVE:
                 if (!mIsDraggingWheel) {
