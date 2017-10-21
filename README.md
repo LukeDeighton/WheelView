@@ -1,3 +1,8 @@
+Looking for maintainers
+---
+
+I'm no longer active on this project but I'll still focus on fixing crashing issues and review any code changes etc. 
+
 WheelView
 =========
 
