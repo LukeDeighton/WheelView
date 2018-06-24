@@ -1202,7 +1202,7 @@ public class WheelView extends View {
     protected void onDraw(Canvas canvas) {
         updateWheelStateIfReq();
 
-        if (mWheelDrawable != null) {
+        if (mWheelDrawable != null && mWheelBounds != null) {
             drawWheel(canvas);
         }
 
