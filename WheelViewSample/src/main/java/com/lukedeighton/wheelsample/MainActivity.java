@@ -46,6 +46,11 @@ public class MainActivity extends Activity {
                 Map.Entry<String, Integer> selectedEntry = ((MaterialColorAdapter) parent.getAdapter()).getItem(position);
                 parent.setSelectionColor(getContrastColor(selectedEntry));
             }
+
+            @Override
+            public void onWheelItemSettled(WheelView parent, Drawable itemDrawable, int position) {
+                int testPos = position;
+            }
         });
 
         wheelView.setOnWheelItemClickListener(new WheelView.OnWheelItemClickListener() {

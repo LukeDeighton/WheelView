@@ -24,6 +24,7 @@ import android.graphics.Rect;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.ShapeDrawable;
 import android.graphics.drawable.shapes.OvalShape;
+import android.os.Handler;
 import android.os.SystemClock;
 import android.support.annotation.DrawableRes;
 import android.support.annotation.NonNull;
@@ -103,6 +104,8 @@ public class WheelView extends View {
     private int mRawSelectedPosition;
     private float mLastWheelTouchX;
     private float mLastWheelTouchY;
+
+    private long lastSelectionUpdate;
 
     private CacheItem[] mItemCacheArray;
     private Drawable mWheelDrawable;
@@ -348,6 +351,7 @@ public class WheelView extends View {
          * @param position of the adapter that is closest to the selection angle
          */
         void onWheelItemSelected(WheelView parent, Drawable itemDrawable, int position);
+        void onWheelItemSettled(WheelView parent, Drawable itemDrawable, int position);
 
         //TODO onWheelItemSettled?
     }
@@ -942,6 +946,7 @@ public class WheelView extends View {
     }
 
     private void setSelectedPosition(int position) {
+        lastSelectionUpdate = SystemClock.uptimeMillis();
         if (mRawSelectedPosition == position) return;
 
         mRawSelectedPosition = position;
@@ -950,6 +955,23 @@ public class WheelView extends View {
             int adapterPos = getSelectedPosition();
             mOnItemSelectListener.onWheelItemSelected(this, getWheelItemDrawable(adapterPos), adapterPos);
         }
+
+        informIfSettled(getSelectedPosition());
+
+    }
+
+    private void informIfSettled(final int position){
+        final WheelView wheelView = this;
+        new Handler().postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                if (SystemClock.uptimeMillis() - 100 > lastSelectionUpdate &&
+                        mOnItemSelectListener != null && !isEmptyItemPosition(position)){
+                    int adapterPos = getSelectedPosition();
+                    mOnItemSelectListener.onWheelItemSettled(wheelView, getWheelItemDrawable(adapterPos), adapterPos);
+                }
+            }
+        }, 600);
     }
 
     /**
