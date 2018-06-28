@@ -1202,7 +1202,9 @@ public class WheelView extends View {
     protected void onDraw(Canvas canvas) {
         updateWheelStateIfReq();
 
-        if (mWheelDrawable != null && mWheelBounds != null) {
+        if (mWheelBounds == null) return; //issue with layoutWheel not being called before draw call
+
+        if (mWheelDrawable != null) {
             drawWheel(canvas);
         }
 
