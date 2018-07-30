@@ -21,7 +21,7 @@ Setup
 Include this in build.gradle project dependencies:
 ```groovy
 dependencies {
-    compile 'com.github.lukedeighton:wheelview:0.4.1'
+    compile 'com.github.lukedeighton:wheelview:0.4.2'
 }
 ```
 
