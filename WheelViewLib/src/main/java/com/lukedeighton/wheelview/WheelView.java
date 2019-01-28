@@ -109,6 +109,7 @@ public class WheelView extends View {
     private Drawable mEmptyItemDrawable;
     private Drawable mSelectionDrawable;
 
+    private boolean mIsWheelRotatable = true;
     private boolean mIsRepeatable;
     private boolean mIsWheelDrawableRotatable = true;
 
@@ -216,6 +217,7 @@ public class WheelView extends View {
             setSelectionColor(color);
         }
 
+        mIsWheelRotatable = a.getBoolean(R.styleable.WheelView_rotatable, true);
         mSelectionPadding = a.getDimensionPixelSize(R.styleable.WheelView_selectionPadding, 0);
         mIsRepeatable = a.getBoolean(R.styleable.WheelView_repeatItems, false);
         mIsWheelDrawableRotatable = a.getBoolean(R.styleable.WheelView_rotatableWheelDrawable, true);
@@ -400,6 +402,21 @@ public class WheelView extends View {
 
     public WheelAdapter getAdapter() {
         return mAdapter;
+    }
+
+    /**
+     * @return {@code true} if the wheel rotates.
+     */
+    public boolean isWheelRotatable() {
+        return mIsWheelRotatable;
+    }
+
+    /**
+     * <p> When true the wheel is rotated.
+     * <p> The default value is true
+     */
+    public void setWheelRotatable(boolean isWheelRotatable) {
+        mIsWheelRotatable = isWheelRotatable;
     }
 
     public void setWheelItemTransformer(WheelItemTransformer itemTransformer) {
@@ -1022,6 +1039,9 @@ public class WheelView extends View {
 
     @Override
     public boolean onTouchEvent(@NonNull MotionEvent event) {
+
+        if (!mIsWheelRotatable) return true;
+
         final float x = event.getX();
         final float y = event.getY();
 
